@@ -12,6 +12,9 @@ Controls
 """
 
 import asyncio
+import json
+import sys
+from pathlib import Path
 import math
 import random
 
@@ -24,22 +27,22 @@ WIDTH, HEIGHT = 960, 640
 HUD_HEIGHT = 48
 TILE = 12  # size of one grass patch in pixels
 COLS = WIDTH // TILE
-ROWS = (HEIGHT - HUD_HEIGHT) // TILE
+ROWS = math.ceil((HEIGHT - HUD_HEIGHT) / TILE)
 FPS = 60
 GOAL_PERCENT = 99  # how much of the lawn must be cut to win
 
 # Colors
-TALL_GRASS = (46, 110, 40)
+TALL_GRASS = (55, 112, 66)
 TALL_GRASS_SPECK = (36, 92, 32)
-STRIPE_LIGHT = (126, 196, 92)
-STRIPE_DARK = (98, 170, 70)
+STRIPE_LIGHT = (151, 196, 109)
+STRIPE_DARK = (113, 162, 88)
 HOUSE_WALL = (200, 180, 150)
 HOUSE_ROOF = (150, 70, 60)
 FLOWER_BED = (110, 80, 50)
 TREE_TRUNK = (100, 70, 40)
 TREE_LEAVES = (40, 90, 45)
 FENCE = (230, 230, 220)
-HUD_BG = (35, 35, 40)
+HUD_BG = (23, 48, 40)
 WHITE = (245, 245, 245)
 YELLOW = (250, 215, 80)
 
@@ -69,8 +72,6 @@ class Yard:
             (480, top + 420, 28),
         ]
         self.obstacles = [self.house] + self.flower_beds
-        for x, y, r in self.trees:
-            self.obstacles.append(pygame.Rect(x - r, y - r, r * 2, r * 2))
         t = self.fence_thickness
         self.obstacles += [
             pygame.Rect(0, top, WIDTH, t),  # top fence
@@ -83,7 +84,7 @@ class Yard:
         self.grid = [[TALL] * COLS for _ in range(ROWS)]
         for row in range(ROWS):
             for col in range(COLS):
-                if any(o.colliderect(self.tile_rect(col, row)) for o in self.obstacles):
+                if self.blocked(self.tile_rect(col, row)):
                     self.grid[row][col] = BLOCKED
         self.total_grass = sum(row.count(TALL) for row in self.grid)
         self.cut_count = 0
@@ -142,7 +143,20 @@ class Yard:
         return 100 * self.cut_count / self.total_grass
 
     def blocked(self, rect):
-        return rect.collidelist(self.obstacles) != -1
+        if rect.left < 0 or rect.right > WIDTH or rect.top < HUD_HEIGHT or rect.bottom > HEIGHT:
+            return True
+        if rect.collidelist(self.obstacles) != -1:
+            return True
+        return any((x - max(rect.left, min(x, rect.right))) ** 2
+                   + (y - max(rect.top, min(y, rect.bottom))) ** 2 < r ** 2
+                   for x, y, r in self.trees)
+
+    def draw_remaining(self, screen):
+        for row, cells in enumerate(self.grid):
+            for col, state in enumerate(cells):
+                if state == TALL:
+                    pygame.draw.rect(screen, YELLOW, self.tile_rect(col, row).inflate(-3, -3), 2)
+
 
     def draw(self, screen):
         screen.blit(self.lawn, (0, HUD_HEIGHT))
@@ -155,15 +169,26 @@ class Yard:
                 color = rnd.choice([(230, 70, 90), (250, 200, 60), (180, 110, 230)])
                 pygame.draw.circle(screen, color, (fx, fy), 4)
         h = self.house
-        pygame.draw.rect(screen, HOUSE_WALL, h)
+        pygame.draw.rect(screen, (35, 65, 42), h.move(5, 6), border_radius=5)
+        pygame.draw.rect(screen, HOUSE_WALL, h, border_radius=5)
         pygame.draw.rect(screen, HOUSE_ROOF, h.inflate(-20, -20))
         pygame.draw.line(screen, (120, 55, 50), h.inflate(-20, -20).midleft, h.inflate(-20, -20).midright, 3)
+        roof = h.inflate(-20, -20)
+        for y in range(roof.top + 8, roof.bottom, 12):
+            pygame.draw.line(screen, (173, 89, 72), (roof.left, y), (roof.right, y), 2)
         for x, y, r in self.trees:
             pygame.draw.circle(screen, (30, 70, 35), (x + 4, y + 6), r)  # shadow
             pygame.draw.circle(screen, TREE_LEAVES, (x, y), r)
             pygame.draw.circle(screen, (55, 115, 60), (x - r // 3, y - r // 3), r // 2)
         for fence in self.obstacles[-4:]:
+            pygame.draw.rect(screen, (165, 171, 141), fence.move(3, 3))
             pygame.draw.rect(screen, FENCE, fence)
+            if fence.w > fence.h:
+                for x in range(8, WIDTH, 24):
+                    pygame.draw.rect(screen, WHITE, (x, fence.y, 4, fence.h))
+            else:
+                for y in range(HUD_HEIGHT, HEIGHT, 24):
+                    pygame.draw.rect(screen, WHITE, (fence.x, y, fence.w, 4))
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +221,10 @@ class Mower:
         if driver_on:
             pygame.draw.circle(body, (240, 200, 160), (20, self.SIZE // 2), 7)  # driver's head
             pygame.draw.circle(body, YELLOW, (19, self.SIZE // 2), 7, 3)  # cap
+        pygame.draw.rect(body, (242, 115, 83), (32, 10, 18, 5), border_radius=2)
+        pygame.draw.rect(body, (255, 222, 137), (49, 14, 5, 6), border_radius=2)
+        pygame.draw.rect(body, (255, 222, 137), (49, 32, 5, 6), border_radius=2)
+        pygame.draw.ellipse(screen, (37, 73, 45), (self.x - 29, self.y - 23, 60, 52))
         turned = pygame.transform.rotate(body, -self.angle)
         screen.blit(turned, turned.get_rect(center=(self.x, self.y)))
 
@@ -259,6 +288,8 @@ class Game:
     def __init__(self):
         self.font = pygame.font.Font(None, 30)
         self.big_font = pygame.font.Font(None, 72)
+        self.best_time = self.load_best()
+        self.small_font = pygame.font.Font(None, 22)
         self.reset()
 
     def reset(self):
@@ -269,14 +300,48 @@ class Game:
         self.clippings = []
         self.time = 0.0
         self.won = False
+        self.paused = False
+        self.highlight = False
+        self.new_record = False
         self.message = "Mow the big areas, then hop off (SPACE) to trim the edges!"
         self.message_timer = 5.0
 
     def handle_key(self, key):
         if key == pygame.K_r:
             self.reset()
-        elif key == pygame.K_SPACE and not self.won:
+        elif key in (pygame.K_p, pygame.K_ESCAPE) and not self.won:
+            self.paused = not self.paused
+        elif key == pygame.K_h:
+            self.highlight = not self.highlight
+        elif key == pygame.K_SPACE and not self.won and not self.paused:
             self.toggle_mower()
+
+    @staticmethod
+    def load_best():
+        try:
+            if sys.platform == "emscripten":
+                from platform import window
+                value = window.localStorage.getItem("lawn-wrangler-best-v1")
+            else:
+                value = (Path.home() / ".lawn-wrangler-best.json").read_text()
+            result = float(json.loads(str(value)))
+            return result if math.isfinite(result) and result > 0 else None
+        except (OSError, ValueError, TypeError, ImportError, AttributeError):
+            return None
+
+    def save_best(self):
+        try:
+            value = json.dumps(self.best_time)
+            if sys.platform == "emscripten":
+                from platform import window
+                window.localStorage.setItem("lawn-wrangler-best-v1", value)
+            else:
+                (Path.home() / ".lawn-wrangler-best.json").write_text(value)
+        except (OSError, ImportError, AttributeError):
+            self.say("Best time kept for this session; storage unavailable.")
+
+    def movement_blocked(self, rect):
+        return self.yard.blocked(rect) or (not self.on_mower and rect.colliderect(self.mower.rect()))
 
     def toggle_mower(self):
         if self.on_mower:
@@ -302,13 +367,17 @@ class Game:
         self.message_timer = 2.5
 
     def update(self, dt):
+        if self.paused:
+            return
+        elapsed = dt
+        dt = min(dt, 0.05)
         self.message_timer -= dt
         for c in self.clippings:
             c.update(dt)
         self.clippings = [c for c in self.clippings if c.life > 0]
         if self.won:
             return
-        self.time += dt
+        self.time += elapsed
 
         keys = pygame.key.get_pressed()
         dx = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a])
@@ -322,10 +391,10 @@ class Game:
             step = mover.SPEED * dt
             # Move one axis at a time so you can slide along walls.
             new_x = mover.x + dx / length * step
-            if not self.yard.blocked(mover.rect(new_x, mover.y)):
+            if not self.movement_blocked(mover.rect(new_x, mover.y)):
                 mover.x = new_x
             new_y = mover.y + dy / length * step
-            if not self.yard.blocked(mover.rect(mover.x, new_y)):
+            if not self.movement_blocked(mover.rect(mover.x, new_y)):
                 mover.y = new_y
             mover.angle = math.degrees(math.atan2(dy, dx))
 
@@ -343,9 +412,15 @@ class Game:
 
         if self.yard.percent_cut() >= GOAL_PERCENT:
             self.won = True
+            if self.best_time is None or self.time < self.best_time:
+                self.best_time = self.time
+                self.new_record = True
+                self.save_best()
 
     def draw(self, screen):
         self.yard.draw(screen)
+        if self.highlight or self.yard.percent_cut() >= 95:
+            self.yard.draw_remaining(screen)
         self.mower.draw(screen, driver_on=self.on_mower)
         if not self.on_mower:
             self.walker.draw(screen)
@@ -354,6 +429,14 @@ class Game:
         self.draw_hud(screen)
         if self.won:
             self.draw_win(screen)
+        elif self.paused:
+            shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            shade.fill((12, 32, 25, 190))
+            screen.blit(shade, (0, 0))
+            text = self.big_font.render("Take a breather", True, YELLOW)
+            screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20)))
+            text = self.font.render("P / Esc to resume", True, WHITE)
+            screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40)))
 
     def draw_hud(self, screen):
         pygame.draw.rect(screen, HUD_BG, (0, 0, WIDTH, HUD_HEIGHT))
@@ -368,9 +451,13 @@ class Game:
         screen.blit(self.font.render(tool, True, YELLOW), (420, 14))
         t = self.font.render(f"Time {int(self.time) // 60}:{int(self.time) % 60:02d}", True, WHITE)
         screen.blit(t, (WIDTH - t.get_width() - 16, 14))
+        remaining = self.yard.total_grass - self.yard.cut_count
+        best = "--:--" if self.best_time is None else f"{int(self.best_time)//60}:{int(self.best_time)%60:02d}"
+        label = self.small_font.render(f"WASD Move   SPACE Tool   P Pause   H Highlights   R Restart     |     Best {best}   ·   {remaining} patches left", True, WHITE)
+        screen.blit(label, (16, HEIGHT - 22))
         if self.message_timer > 0 and not self.won:
             msg = self.font.render(self.message, True, WHITE)
-            box = msg.get_rect(midbottom=(WIDTH // 2, HEIGHT - 16)).inflate(20, 10)
+            box = msg.get_rect(midbottom=(WIDTH // 2, HEIGHT - 42)).inflate(20, 10)
             pygame.draw.rect(screen, HUD_BG, box, border_radius=8)
             screen.blit(msg, msg.get_rect(center=box.center))
 
@@ -384,6 +471,9 @@ class Game:
             f"Finished in {int(self.time) // 60}:{int(self.time) % 60:02d}. Press R to mow again.", True, WHITE
         )
         screen.blit(info, info.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30)))
+        record = "New personal best!" if self.new_record else f"Personal best: {int(self.best_time)//60}:{int(self.best_time)%60:02d}"
+        text = self.font.render(record, True, YELLOW)
+        screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 72)))
 
 
 # ---------------------------------------------------------------------------
@@ -398,10 +488,12 @@ async def main():
 
     running = True
     while running:
-        dt = min(clock.tick(FPS) / 1000, 0.05)  # seconds since last frame
+        dt = clock.tick(FPS) / 1000  # seconds since last frame
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.WINDOWFOCUSLOST and not game.won:
+                game.paused = True
             elif event.type == pygame.KEYDOWN:
                 game.handle_key(event.key)
         game.update(dt)
