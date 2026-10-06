@@ -1,44 +1,96 @@
 # Lawn Wrangler
 
-![Lawn Wrangler screenshot](screenshot.png)
+A relaxing landscaping game: mow clean stripes across the open lawn, hop off to
+trim around trees, flower beds, the house, and fence, and cut 99% to finish.
+Built with Python, pygame-ce, and pygbag for desktop and browser play.
 
-A small top-down landscaping game written in Python with pygame. Ride the
-mower to cut the big open areas, then hop off and use the weed eater to trim
-the edges around the house, trees, flower beds and fence. Cut 99% of the lawn
-to finish the yard.
+![Lawn Wrangler gameplay](screenshot.png)
+
+## Features
+
+- Riding mower and weed eater with different speeds and cutting reach.
+- Light and dark stripes based on mowing direction, plus flying grass clippings.
+- Circular tree collisions and a solid parked mower.
+- Pause with P / Escape; automatic pause when the game loses focus.
+- Remaining-grass highlighting with H, automatically enabled at 95% completion.
+- Remaining-patch count, elapsed time, and persistent personal best times.
+- Refreshed yard graphics and a responsive green-and-cream browser page with
+  visible controls and fullscreen support.
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
 | Arrow keys / WASD | Move |
-| Space | Hop off the mower, or back on when you're next to it |
-| R | Restart |
+| Space | Dismount, or remount when next to the mower |
+| P / Escape | Pause or resume |
+| H | Highlight remaining grass |
+| R | Restart the yard |
 
-Mow side to side for light stripes and up and down for dark ones.
+Click inside the browser game before using the keyboard. Mow horizontally for
+light stripes and vertically for dark stripes. A keyboard is required.
 
-## Run it on your computer
+## Run on desktop
+
+Python 3.9 or newer is required. From the repository root:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 python game/main.py
 ```
 
-## Play it in the browser
+On Windows, activate with `.venv\Scripts\activate` instead.
+Best times are stored in `~/.lawn-wrangler-best.json` on desktop and browser
+localStorage on the web. Records stay on the current device/browser; clearing
+browser site data removes the web record. If storage is unavailable, the record
+remains available for the current session.
 
-The game is built for the web with [pygbag](https://pypi.org/project/pygbag/)
-and published with GitHub Pages by `.github/workflows/pages.yml`, on every push
-to `main`. To try the web build locally:
+## Play and build for the browser
+
+[Play Lawn Wrangler](https://ElSpaniard97.github.io/lawn-wrangler/).
+GitHub Actions builds and publishes the game and landing page on pushes to `main`.
+
+For the standard pygbag development server:
 
 ```bash
 python -m pygbag game
 ```
 
-then open http://localhost:8000.
+Open http://localhost:8000. To preview the complete redesigned page:
 
-## Ideas for what to add next
+```bash
+python -m pygbag --build game
+mkdir -p site/play
+cp -R game/build/web/. site/play/
+cp web/index.html site/index.html
+python -m http.server 9000 --directory site
+```
 
-- Sound effects for the mower engine and weed eater
-- Fuel for the mower and a gas can to refill it
-- More yards (levels) with different layouts
-- A best-time leaderboard
+Open http://localhost:9000. Use port 9000 for this static preview: pygbag reserves
+localhost:8000 for its development dependency proxy. The browser runtime downloads
+from the pygame-web CDN, so first launch requires an internet connection.
+
+## Tests and project layout
+
+```bash
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m unittest discover -s tests
+```
+
+The regression checks cover pause behavior, timing, tree and parked-mower
+collisions, cutting counts, record persistence, and rendering of game states.
+
+- `game/main.py` — gameplay, yard rendering, HUD, and record storage.
+- `web/index.html` — browser landing page and fullscreen control.
+- `tests/test_game.py` — gameplay regression checks.
+- `.github/workflows/pages.yml` — browser build and Pages deployment.
+
+## Next graphics direction
+
+The next phase targets a third-person 3D presentation inspired by the supplied
+visual reference: detailed residential landscaping, an orange riding mower,
+textured tall grass and cut stripes, sunlight and shadows, and an immersive HUD.
+This is a planned engine/rendering upgrade; the current playable version remains
+the top-down Pygame game. Further ideas include audio, fuel, more yards, and a
+leaderboard.
