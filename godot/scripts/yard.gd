@@ -312,7 +312,7 @@ func _build_environment() -> void:
 	add_child(floor_body)
 	var outer := PlaneMesh.new()
 	outer.size = Vector2(200, 200)
-	outer.material = _material(Color(0.20, 0.36, 0.10), 1.0)
+	outer.material = Models.textured("grass", Color(0.62, 0.68, 0.55), 1.6, 1.0)
 	var outer_instance := MeshInstance3D.new()
 	outer_instance.mesh = outer
 	outer_instance.position = Vector3(YARD_SIZE / 2.0, -0.02, YARD_SIZE / 2.0)
@@ -320,8 +320,8 @@ func _build_environment() -> void:
 
 
 func _build_fence() -> void:
-	var wood := _material(Color(0.55, 0.38, 0.24), 0.9)
-	var post_wood := _material(Color(0.45, 0.31, 0.2), 0.9)
+	var wood := Models.textured("wood", Color.WHITE, 1.0)
+	var post_wood := Models.textured("wood", Color(0.78, 0.72, 0.68), 1.0)
 	var height := 1.2
 	var walls := [
 		[Vector3(YARD_SIZE / 2.0, 0, -0.1), Vector3(YARD_SIZE + 0.4, height, 0.2)],
@@ -374,10 +374,10 @@ func _build_fence() -> void:
 ## A round leafy tree, or a pine when `pine` is set. Trees inside the yard
 ## get a stone ring with mulch and a collider.
 func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false) -> void:
-	var bark := _material(Color(0.36, 0.25, 0.17), 1.0)
+	var bark := Models.textured("wood", Color(0.5, 0.45, 0.42), 0.8, 1.0)
 	if pine:
 		Models.add_cylinder(scenery, 0.18 * scale_factor, 1.4 * scale_factor, at + Vector3(0, 0.7, 0) * scale_factor, bark)
-		var needles := _material(Color(0.12, 0.30, 0.15), 1.0)
+		var needles := Models.textured("leaves", Color(0.55, 0.8, 0.75), 1.2, 1.0)
 		for layer in 4:
 			var cone := CylinderMesh.new()
 			cone.top_radius = 0.0
@@ -395,7 +395,7 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false)
 		trunk_mesh.material = bark
 		Models.add_mesh(scenery, trunk_mesh, at + Vector3(0, trunk_mesh.height / 2.0, 0))
 		var shade := 0.04 * roundf(sin(at.x * 1.7 + at.z)) # three shades, so trees share materials
-		var leaves := _material(Color(0.24 + shade, 0.48 + shade, 0.14), 1.0)
+		var leaves := Models.textured("leaves", Color(1.0 + shade, 1.0 + shade, 1.0), 1.5, 1.0)
 		for blob in [[Vector3(0, 3.0, 0), 1.5], [Vector3(0.8, 2.6, 0.3), 1.0], [Vector3(-0.7, 2.7, -0.4), 1.1], [Vector3(0.1, 3.7, 0.2), 1.0]]:
 			Models.add_sphere(scenery, blob[1] * scale_factor, at + blob[0] * scale_factor, leaves)
 	if collide:
@@ -403,7 +403,7 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false)
 		ring.top_radius = RING_RADIUS
 		ring.bottom_radius = RING_RADIUS + 0.03
 		ring.height = 0.2
-		ring.material = _material(Color(0.42, 0.40, 0.38), 0.9)
+		ring.material = Models.textured("stone", Color.WHITE, 0.8)
 		var ring_instance := MeshInstance3D.new()
 		ring_instance.mesh = ring
 		ring_instance.position = at + Vector3(0, 0.1, 0)
@@ -412,7 +412,7 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false)
 		mulch.top_radius = RING_RADIUS - 0.06
 		mulch.bottom_radius = RING_RADIUS - 0.06
 		mulch.height = 0.02
-		mulch.material = _material(Color(0.30, 0.20, 0.13), 1.0)
+		mulch.material = Models.textured("mulch", Color.WHITE, 0.8, 1.0)
 		var mulch_instance := MeshInstance3D.new()
 		mulch_instance.mesh = mulch
 		mulch_instance.position = at + Vector3(0, 0.205, 0)
@@ -433,7 +433,7 @@ func _build_bed(at: Vector3, radius: float) -> void:
 	soil.top_radius = radius
 	soil.bottom_radius = radius + 0.05
 	soil.height = 0.16
-	soil.material = _material(Color(0.30, 0.21, 0.14), 1.0)
+	soil.material = Models.textured("mulch", Color.WHITE, 0.8, 1.0)
 	var bed := MeshInstance3D.new()
 	bed.mesh = soil
 	bed.position = at + Vector3(0, 0.08, 0)
@@ -446,7 +446,7 @@ func _build_bed(at: Vector3, radius: float) -> void:
 	stone.height = 0.12
 	stone.radial_segments = 8
 	stone.rings = 4
-	stone.material = _material(Color(0.5, 0.48, 0.45), 0.9)
+	stone.material = Models.textured("stone", Color.WHITE, 0.5)
 	var stones := MultiMesh.new()
 	stones.transform_format = MultiMesh.TRANSFORM_3D
 	stones.mesh = stone
@@ -461,7 +461,7 @@ func _build_bed(at: Vector3, radius: float) -> void:
 	stone_instance.position = at
 	scenery.add_child(stone_instance)
 	# Shrubs in the middle, flowers on stems around them.
-	var leaf := _material(Color(0.18, 0.38, 0.14), 1.0)
+	var leaf := Models.textured("leaves", Color.WHITE, 0.6, 1.0)
 	var stem := _material(Color(0.2, 0.45, 0.15), 1.0)
 	var colors := [Color(0.85, 0.3, 0.5), Color(0.95, 0.8, 0.25), Color(0.92, 0.92, 0.96), Color(0.6, 0.35, 0.85)]
 	for i in 3:
@@ -504,29 +504,38 @@ func _build_scenery() -> void:
 		_build_tree(spot, rng.randf_range(1.6, 2.4), false, rng.randf() < 0.35)
 
 
-## A house facing local +Z: walls, roof with overhang, chimney, windows,
-## a door with a step, and a garage door on the main house.
+## A house facing local +Z: sided walls on a stone foundation, a shingled
+## roof with overhang, stone chimney, windows, a door with a step and paver
+## patio, and a garage door and driveway on the main house.
 func _build_house(at: Vector3, size: Vector3, turn: float, wall_color: Color, roof_color: Color, garage: bool) -> void:
 	var house := Node3D.new()
 	house.position = at
 	house.rotation_degrees.y = turn
 	scenery.add_child(house)
-	var wall := _material(wall_color, 0.9)
+	# Photo siding and shingles, tinted towards each house's own colours.
+	# The photos average about 0.81 (siding) and 0.27 (shingles) in brightness.
+	var wall := Models.textured("siding_white", _tint(wall_color, 0.81), 2.0)
+	var stone := Models.textured("stone", Color.WHITE, 1.2)
 	var trim := _material(Color(0.95, 0.95, 0.93), 0.7)
 	var glass := Models.glow(Color(0.45, 0.6, 0.72), 0.25)
 	var front := size.z / 2.0
 	Models.add_box(house, size, Vector3(0, size.y / 2.0, 0), wall)
-	Models.add_box(house, Vector3(size.x + 0.1, 0.3, size.z + 0.1), Vector3(0, 0.15, 0), _material(Color(0.45, 0.44, 0.42), 0.9)) # foundation
+	Models.add_box(house, Vector3(size.x + 0.1, 0.3, size.z + 0.1), Vector3(0, 0.15, 0), stone) # foundation
 	var roof := PrismMesh.new()
 	roof.size = Vector3(size.x + 1.0, size.y * 0.5, size.z + 1.2)
-	roof.material = _material(roof_color, 0.8)
+	roof.material = Models.textured("shingles", _tint(roof_color, 0.27), 2.0, 0.85)
 	Models.add_mesh(house, roof, Vector3(0, size.y + size.y * 0.25, 0))
-	Models.add_box(house, Vector3(0.8, 2.0, 0.8), Vector3(size.x * 0.3, size.y + 1.4, -size.z * 0.15), _material(Color(0.55, 0.3, 0.25), 0.9)) # chimney
+	Models.add_box(house, Vector3(0.8, 2.0, 0.8), Vector3(size.x * 0.3, size.y + 1.4, -size.z * 0.15), stone) # chimney
 	Models.add_box(house, Vector3(size.x + 0.2, 0.15, size.z + 0.2), Vector3(0, size.y, 0), trim) # eave trim
 	# Door near one end, garage at the other, windows between.
 	var door_x := -size.x * 0.3 if garage else 0.0
 	Models.add_box(house, Vector3(1.1, 2.2, 0.08), Vector3(door_x, 1.1 + 0.3, front + 0.02), _material(Color(0.35, 0.18, 0.12), 0.7))
-	Models.add_box(house, Vector3(1.6, 0.2, 0.8), Vector3(door_x, 0.1, front + 0.4), _material(Color(0.55, 0.54, 0.52), 0.9)) # step
+	var concrete := Models.textured("concrete", Color.WHITE, 1.5)
+	Models.add_box(house, Vector3(1.6, 0.2, 0.8), Vector3(door_x, 0.1, front + 0.4), concrete) # step
+	# A paver patio past the step, and a concrete driveway at the garage.
+	Models.add_box(house, Vector3(2.4, 0.06, 1.4), Vector3(door_x, 0.03, front + 1.5), Models.textured("pavers", Color.WHITE, 1.5))
+	if garage:
+		Models.add_box(house, Vector3(3.8, 0.06, 2.3), Vector3(size.x * 0.33, 0.03, front + 1.15), concrete)
 	var windows: Array = [-size.x * 0.32, size.x * 0.32] if not garage else [-size.x * 0.08, size.x * 0.12]
 	if garage:
 		Models.add_box(house, Vector3(3.2, 2.5, 0.08), Vector3(size.x * 0.33, 1.25 + 0.3, front + 0.02), trim)
@@ -542,6 +551,11 @@ func _build_house(at: Vector3, size: Vector3, turn: float, wall_color: Color, ro
 		Models.add_box(house, Vector3(1.2, 1.1, 0.1), Vector3(x, 2.1, -front - 0.03), glass)
 	for side in [-1, 1]:
 		Models.add_box(house, Vector3(0.1, 1.1, 1.2), Vector3(side * (size.x / 2.0 + 0.03), 2.1, 0), glass)
+
+
+## The tint that turns a photo of average brightness `mean` into `color`.
+func _tint(color: Color, mean: float) -> Color:
+	return Color(minf(color.r / mean, 1.0), minf(color.g / mean, 1.0), minf(color.b / mean, 1.0))
 
 
 func _material(color: Color, roughness: float) -> StandardMaterial3D:

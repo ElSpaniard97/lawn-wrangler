@@ -1,7 +1,7 @@
 class_name LawnView
 extends Node3D
 ## Draws the LawnGrid: a ground texture with one pixel per cell (tall, two
-## stripe shades, or mulch) and chunked MultiMesh grass clumps. Cutting a
+## stripe shades, or mulch), detailed with a grass photo, and chunked MultiMesh grass clumps. Cutting a
 ## cell drops its clump to short stubble. Chunks let the renderer cull what
 ## is off screen.
 
@@ -47,10 +47,10 @@ func _build_ground() -> void:
 		for x in grid.columns:
 			image.set_pixel(x, z, _color_for(x, z))
 	texture = ImageTexture.create_from_image(image)
-	var material := StandardMaterial3D.new()
-	material.albedo_texture = texture
-	material.roughness = 1.0
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+	var material := ShaderMaterial.new()
+	material.shader = load("res://shaders/ground.gdshader")
+	material.set_shader_parameter("cells", texture)
+	material.set_shader_parameter("detail", load("res://textures/grass.jpg"))
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(grid.columns, grid.rows) * grid.cell_size
 	plane.material = material

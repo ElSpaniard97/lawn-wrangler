@@ -31,6 +31,7 @@ func _initialize() -> void:
 	await test_walk_animation_and_minimap()
 	await test_everything_is_built_in_code()
 	await test_static_models_are_baked()
+	await test_photo_textures_are_local_and_listed()
 	await test_quality_presets_and_saved_settings()
 	await test_touch_controls()
 	await test_lost_focus_pauses_with_pause_screen()
@@ -352,6 +353,32 @@ func test_everything_is_built_in_code() -> void:
 			loaded.append(path)
 	check(surfaces > 50, "yard is dressed with models (%d surfaces)" % surfaces)
 	check(loaded.is_empty(), "no model files are loaded: %s" % [loaded])
+	await end_yard(yard)
+
+
+## Scenery photos come only from res://textures, are plain JPEG images, and
+## each one is credited in ASSET_LICENSES.md.
+func test_photo_textures_are_local_and_listed() -> void:
+	var yard := await new_yard()
+	var used := {}
+	for node in yard.find_children("*", "MeshInstance3D", true, false):
+		for surface in node.mesh.get_surface_count():
+			var mat = node.mesh.surface_get_material(surface)
+			if mat is StandardMaterial3D and mat.albedo_texture:
+				used[mat.albedo_texture.resource_path] = true
+	var ground: MeshInstance3D = yard.view.get_node("Ground")
+	var ground_material: ShaderMaterial = ground.mesh.material
+	check(ground_material.shader.resource_path == "res://shaders/ground.gdshader", "the lawn uses the ground shader")
+	used[ground_material.get_shader_parameter("detail").resource_path] = true
+	check(used.size() >= 8, "scenery uses the photo textures (%d)" % used.size())
+	var licenses := FileAccess.get_file_as_string(ProjectSettings.globalize_path("res://").path_join("../ASSET_LICENSES.md"))
+	for path: String in used:
+		check(path.begins_with("res://textures/") and path.ends_with(".jpg"), "texture %s is a local JPEG" % path)
+		check(licenses.contains(path.get_file()), "%s is listed in ASSET_LICENSES.md" % path.get_file())
+	for file in DirAccess.get_files_at("res://textures"):
+		check(file.ends_with(".jpg") or file.ends_with(".jpg.import"), "only images in textures/: %s" % file)
+		if file.ends_with(".jpg"):
+			check(used.has("res://textures/" + file), "%s is used" % file)
 	await end_yard(yard)
 
 

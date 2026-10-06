@@ -23,5 +23,7 @@ instead of opening a public issue.
   finite number.
 - Saved settings are JSON too; any value that is not one of the expected
   choices is ignored.
-- No third-party assets or Godot add-ons are used: every model and sound is
-  generated in code. Any added later must be listed with source and license.
+- No Godot add-ons or outside scripts are used, and every model and sound is
+  generated in code. The only outside assets are plain JPEG photo textures,
+  each listed with its source in [ASSET_LICENSES.md](ASSET_LICENSES.md); a
+  test fails the build if the game uses one that is not listed.
