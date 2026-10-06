@@ -6,14 +6,15 @@ extends Node3D
 ## is off screen.
 
 const CHUNK := 10 # cells per chunk side
-const TALL_COLOR := Color(0.14, 0.25, 0.07)
-const STRIPE_A_COLOR := Color(0.25, 0.40, 0.12)
-const STRIPE_B_COLOR := Color(0.17, 0.30, 0.08)
+const TALL_COLOR := Color(0.13, 0.27, 0.06)
+const STRIPE_A_COLOR := Color(0.36, 0.56, 0.16)
+const STRIPE_B_COLOR := Color(0.19, 0.36, 0.08)
 const BLOCKED_COLOR := Color(0.30, 0.21, 0.14)
 const HIGHLIGHT_COLOR := Color(0.85, 0.68, 0.12)
 const STUBBLE_HEIGHT := 0.2 # fraction of full clump height left after a cut
 const TALL_DATA := Color(1, 0, 0, 0)
-const CUT_DATA := Color(0, 0, 0, 0)
+const CUT_DATA := Color(0, 0, 0, 0) # dark stripe stubble
+const CUT_LIGHT_DATA := Color(0, 1, 0, 0) # light stripe stubble
 
 var grid: LawnGrid
 var image: Image
@@ -90,7 +91,7 @@ func _build_clumps(rng: RandomNumberGenerator) -> void:
 					clump_transforms[z * grid.columns + x] = full
 					var is_tall := grid.cell(x, z) == LawnGrid.TALL
 					mm.set_instance_transform(index, full if is_tall else _stubble(full))
-					mm.set_instance_custom_data(index, TALL_DATA if is_tall else CUT_DATA)
+					mm.set_instance_custom_data(index, TALL_DATA if is_tall else _cut_data(grid.cell(x, z)))
 			chunks.append(mm)
 			var instance := MultiMeshInstance3D.new()
 			instance.multimesh = mm
@@ -99,18 +100,19 @@ func _build_clumps(rng: RandomNumberGenerator) -> void:
 			add_child(instance)
 
 
-## Five tapered blades (the shader shades them root to tip). Each blade is in the mesh twice,
+## Seven tapered blades (the shader shades them root to tip). Each blade is in the mesh twice,
 ## once per winding, both with an upward normal, so it is lit from either
 ## side instead of going dark on its back face.
 func _clump_mesh() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for blade in 5:
-		var angle := blade * TAU / 5.0
-		var side := Vector3(cos(angle), 0, sin(angle)) * 0.03
-		var lean := Vector3(-sin(angle), 0, cos(angle)) * 0.05
-		var height := 0.24 + 0.06 * (blade % 2)
-		var points := [-side, side, Vector3(0, height, 0) + lean]
+	for blade in 7:
+		var angle := blade * TAU / 7.0 + 0.4 * (blade % 3)
+		var spread := Vector3(cos(angle * 1.7), 0, sin(angle * 1.7)) * 0.05 * (blade % 2)
+		var side := Vector3(cos(angle), 0, sin(angle)) * 0.025
+		var lean := Vector3(-sin(angle), 0, cos(angle)) * 0.06
+		var height := 0.22 + 0.04 * (blade % 3)
+		var points := [spread - side, spread + side, spread + Vector3(0, height, 0) + lean]
 		for order in [[0, 1, 2], [1, 0, 2]]:
 			for i in order:
 				st.set_normal(Vector3.UP)
@@ -143,12 +145,16 @@ func instance_for(x: int, z: int) -> int:
 	return (z % CHUNK) * CHUNK + (x % CHUNK)
 
 
-func _on_cell_cut(x: int, z: int, _stripe: int) -> void:
+func _cut_data(stripe: int) -> Color:
+	return CUT_LIGHT_DATA if stripe == LawnGrid.STRIPE_A else CUT_DATA
+
+
+func _on_cell_cut(x: int, z: int, stripe: int) -> void:
 	image.set_pixel(x, z, _color_for(x, z))
 	var chunk := chunk_for(x, z)
 	var index := instance_for(x, z)
 	chunk.set_instance_transform(index, _stubble(clump_transforms[z * grid.columns + x]))
-	chunk.set_instance_custom_data(index, CUT_DATA)
+	chunk.set_instance_custom_data(index, _cut_data(stripe))
 	dirty = true
 
 

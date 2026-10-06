@@ -22,8 +22,11 @@ GDScript, and played in the browser.
 - A minimap of the lawn showing what is cut and where you are.
 - The mower's blade is narrower than its body, so the strip along the fence
   and the edges of beds and tree rings need the weed eater.
-- Two stripe shades depending on which way you mow; cut grass leaves short
-  stubble and throws clippings, and tall grass sways in the breeze.
+- Light and dark stripes like a real lawn: mowing a line one way and back
+  the other leaves alternating shades. Cut grass leaves short stubble and
+  throws clippings, and tall grass sways in the breeze.
+- Bright summer lighting with a warm sun, soft shadows, light haze and a
+  ring of distant trees.
 - Missed-patch highlight with H, switched on automatically at 95%.
 - Progress, patches left, speed, time and your best time on screen.
 - Pause with P / Esc, and an automatic pause when the game loses focus.
@@ -131,6 +134,7 @@ The full plan is in the project's improvement plan document.
 | 3. Visual slice: models, sound, landscaping, minimap (all built in code) | Done |
 | 4. Optimize and QA: fewer draw calls, quality presets, touch controls | Done |
 | 5. Release 1.0: credits, release checklist, rollback plan | Done |
+| 6. Realism pass: lighting, thicker grass, real stripes, CC0 textures | In progress |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling
