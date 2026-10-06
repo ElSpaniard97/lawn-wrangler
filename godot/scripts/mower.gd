@@ -159,3 +159,9 @@ func _build_visual() -> void:
 	driver.position = Vector3(0, 0.77, 0.12)
 	driver.add_child(Models.person(true))
 	add_child(driver)
+
+	# Fewer draw calls: one mesh for the body, one per wheel, one for the driver.
+	Models.bake(self, wheels + [blade_disc, driver])
+	for wheel in wheels:
+		Models.bake(wheel)
+	Models.bake(driver)

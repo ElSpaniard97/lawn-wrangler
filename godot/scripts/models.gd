@@ -99,6 +99,44 @@ static func add_capsule(parent: Node3D, radius: float, height: float, at: Vector
 	return add_mesh(parent, c, at, rotation_degrees)
 
 
+## Merges every mesh under `root` into one mesh with a surface per
+## material, so the renderer draws a whole model in a handful of calls
+## instead of one call per part. Meshes under the `skip` nodes (parts that
+## move on their own) are left alone. Returns the baked mesh instance.
+static func bake(root: Node3D, skip: Array = []) -> MeshInstance3D:
+	var tools := {}
+	var order := []
+	for node: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		var xf := node.transform
+		var parent := node.get_parent()
+		var skipped := skip.has(node)
+		while parent != root and not skipped:
+			skipped = skip.has(parent)
+			xf = parent.transform * xf
+			parent = parent.get_parent()
+		if skipped or not node.visible:
+			continue
+		for surface in node.mesh.get_surface_count():
+			var mat: Material = node.material_override if node.material_override else node.mesh.surface_get_material(surface)
+			if not tools.has(mat):
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				tools[mat] = st
+				order.append(mat)
+			tools[mat].append_from(node.mesh, surface, xf)
+		node.get_parent().remove_child(node)
+		node.free()
+	var mesh := ArrayMesh.new()
+	for mat in order:
+		tools[mat].commit(mesh)
+		mesh.surface_set_material(mesh.get_surface_count() - 1, mat)
+	var baked := MeshInstance3D.new()
+	baked.name = "Baked"
+	baked.mesh = mesh
+	root.add_child(baked)
+	return baked
+
+
 ## The landscaper, facing -Z with feet at the origin: boots, work pants,
 ## t-shirt, arms, cap and red ear protection. Legs and arms hang from pivot
 ## nodes named LeftLeg, RightLeg, LeftArm and RightArm so they can swing.

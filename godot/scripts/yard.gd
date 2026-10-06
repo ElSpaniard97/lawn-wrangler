@@ -24,6 +24,11 @@ var run: RunState
 var hud: Hud
 var sounds: Sounds
 var floor_body: StaticBody3D
+## Everything that never moves; baked into a few meshes once it is built.
+var scenery: Node3D
+var sun: DirectionalLight3D
+var settings: Settings
+var touch: TouchControls
 var on_mower := true
 var auto_highlighted := false
 
@@ -32,6 +37,10 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_setup_input()
 	_build_environment()
+	settings = Settings.new()
+	settings.load_settings()
+	apply_quality(settings.quality)
+	AudioServer.set_bus_mute(0, settings.muted)
 
 	lawn = LawnGrid.new()
 	lawn.name = "LawnGrid"
@@ -48,12 +57,16 @@ func _ready() -> void:
 	add_child(view)
 	view.build(lawn)
 
+	scenery = Node3D.new()
+	scenery.name = "Scenery"
+	add_child(scenery)
 	_build_fence()
 	for tree in TREES:
 		_build_tree(Vector3(tree.x, 0, tree.y), 1.0, true)
 	for bed in BEDS:
 		_build_bed(Vector3(bed.x, 0, bed.y), bed.z)
 	_build_scenery()
+	Models.bake(scenery)
 
 	mower = Mower.new()
 	mower.name = "Mower"
@@ -77,13 +90,18 @@ func _ready() -> void:
 	add_child(run)
 	hud = Hud.new()
 	add_child(hud)
+	hud.quality_name = Settings.LABELS[settings.quality]
+	touch = TouchControls.new()
+	add_child(touch)
+	if DisplayServer.is_touchscreen_available():
+		show_touch_controls()
 	hud.set_minimap(view.texture)
 	sounds = Sounds.new()
 	sounds.name = "Sounds"
 	sounds.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(sounds)
 	run.finished_run.connect(_on_finished)
-	hud.say("Mow the open lawn, then press Space to hop off and trim the edges.", 5.0)
+	hud.say("Mow the open lawn, then %s to hop off and trim the edges." % ("tap Hop" if touch.visible else "press Space"), 5.0)
 
 
 func _process(_delta: float) -> void:
@@ -111,11 +129,31 @@ func map_point(at: Vector3) -> Vector2:
 	return Vector2(clampf(at.x / YARD_SIZE, 0.0, 1.0), clampf(at.z / YARD_SIZE, 0.0, 1.0))
 
 
+## On-screen buttons replace the keyboard list on phones and tablets.
+func show_touch_controls() -> void:
+	touch.visible = true
+	hud.use_touch()
+
+
+func _input(event: InputEvent) -> void:
+	# A touch screen we did not detect up front still gets the buttons.
+	if event is InputEventScreenTouch and not touch.visible:
+		show_touch_controls()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_echo():
 		return
 	if event.is_action_pressed("mute"):
-		hud.say("Sound off" if Sounds.toggle_mute() else "Sound on", 1.5)
+		settings.muted = Sounds.toggle_mute()
+		settings.save()
+		hud.say("Sound off" if settings.muted else "Sound on", 1.5)
+	elif event.is_action_pressed("quality"):
+		apply_quality(settings.next_quality())
+		settings.save()
+		hud.say("Graphics quality: %s" % Settings.LABELS[settings.quality], 1.5)
+	elif event.is_action_pressed("stats"):
+		hud.toggle_stats()
 	elif event.is_action_pressed("pause"):
 		run.toggle_pause()
 		hud.show_paused(get_tree().paused)
@@ -185,6 +223,21 @@ func _on_finished(time: float, is_record: bool) -> void:
 	sounds.chime()
 
 
+## Low: no shadows and a smaller 3D render, scaled up. Medium: shadows.
+## High: sharper shadows that reach further, and smoothed edges.
+func apply_quality(level: String) -> void:
+	var viewport := get_viewport()
+	sun.shadow_enabled = level != "low"
+	sun.directional_shadow_max_distance = 40.0 if level == "high" else 28.0
+	# Each shadow split redraws the scene, so Medium uses two instead of four.
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if level == "high" else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	RenderingServer.directional_shadow_atlas_set_size(4096 if level == "high" else 2048, true)
+	viewport.msaa_3d = Viewport.MSAA_2X if level == "high" else Viewport.MSAA_DISABLED
+	viewport.scaling_3d_scale = 0.75 if level == "low" else 1.0
+	if hud:
+		hud.quality_name = Settings.LABELS[level]
+
+
 func _setup_input() -> void:
 	var keys := {
 		"accelerate": [KEY_W, KEY_UP],
@@ -195,6 +248,8 @@ func _setup_input() -> void:
 		"hop": [KEY_SPACE],
 		"highlight": [KEY_H],
 		"mute": [KEY_M],
+		"quality": [KEY_Q],
+		"stats": [KEY_F3],
 		"pause": [KEY_P, KEY_ESCAPE],
 		"restart": [KEY_R],
 	}
@@ -225,7 +280,7 @@ func _build_environment() -> void:
 	world.environment = env
 	add_child(world)
 
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -35, 0)
 	sun.light_energy = 1.0
 	sun.light_color = Color(1.0, 0.96, 0.88)
@@ -268,7 +323,7 @@ func _build_fence() -> void:
 		collider.shape = shape
 		body.add_child(collider)
 		body.position = at + Vector3(0, height / 2.0, 0)
-		add_child(body)
+		scenery.add_child(body)
 		# Pickets every 0.25 m along the wall.
 		var length := maxf(size.x, size.z)
 		var along_x := size.x > size.z
@@ -305,7 +360,7 @@ func _build_fence() -> void:
 func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false) -> void:
 	var bark := _material(Color(0.36, 0.25, 0.17), 1.0)
 	if pine:
-		Models.add_cylinder(self, 0.18 * scale_factor, 1.4 * scale_factor, at + Vector3(0, 0.7, 0) * scale_factor, bark)
+		Models.add_cylinder(scenery, 0.18 * scale_factor, 1.4 * scale_factor, at + Vector3(0, 0.7, 0) * scale_factor, bark)
 		var needles := _material(Color(0.12, 0.30, 0.15), 1.0)
 		for layer in 4:
 			var cone := CylinderMesh.new()
@@ -315,18 +370,18 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false)
 			cone.radial_segments = 12
 			cone.rings = 1
 			cone.material = needles
-			Models.add_mesh(self, cone, at + Vector3(0, 1.6 + layer * 0.85, 0) * scale_factor)
+			Models.add_mesh(scenery, cone, at + Vector3(0, 1.6 + layer * 0.85, 0) * scale_factor)
 	else:
 		var trunk_mesh := CylinderMesh.new()
 		trunk_mesh.top_radius = 0.18 * scale_factor
 		trunk_mesh.bottom_radius = 0.25 * scale_factor
 		trunk_mesh.height = 2.4 * scale_factor
 		trunk_mesh.material = bark
-		Models.add_mesh(self, trunk_mesh, at + Vector3(0, trunk_mesh.height / 2.0, 0))
+		Models.add_mesh(scenery, trunk_mesh, at + Vector3(0, trunk_mesh.height / 2.0, 0))
 		var shade := 0.04 * sin(at.x * 1.7 + at.z)
 		var leaves := _material(Color(0.20 + shade, 0.42 + shade, 0.16), 1.0)
 		for blob in [[Vector3(0, 3.0, 0), 1.5], [Vector3(0.8, 2.6, 0.3), 1.0], [Vector3(-0.7, 2.7, -0.4), 1.1], [Vector3(0.1, 3.7, 0.2), 1.0]]:
-			Models.add_sphere(self, blob[1] * scale_factor, at + blob[0] * scale_factor, leaves)
+			Models.add_sphere(scenery, blob[1] * scale_factor, at + blob[0] * scale_factor, leaves)
 	if collide:
 		var ring := CylinderMesh.new()
 		ring.top_radius = RING_RADIUS
@@ -336,7 +391,7 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false)
 		var ring_instance := MeshInstance3D.new()
 		ring_instance.mesh = ring
 		ring_instance.position = at + Vector3(0, 0.1, 0)
-		add_child(ring_instance)
+		scenery.add_child(ring_instance)
 		var mulch := CylinderMesh.new()
 		mulch.top_radius = RING_RADIUS - 0.06
 		mulch.bottom_radius = RING_RADIUS - 0.06
@@ -345,7 +400,7 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false)
 		var mulch_instance := MeshInstance3D.new()
 		mulch_instance.mesh = mulch
 		mulch_instance.position = at + Vector3(0, 0.205, 0)
-		add_child(mulch_instance)
+		scenery.add_child(mulch_instance)
 		var body := StaticBody3D.new()
 		var shape := CylinderShape3D.new()
 		shape.radius = RING_RADIUS
@@ -354,7 +409,7 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false)
 		collider.shape = shape
 		body.add_child(collider)
 		body.position = at + Vector3(0, 1.0, 0)
-		add_child(body)
+		scenery.add_child(body)
 
 
 func _build_bed(at: Vector3, radius: float) -> void:
@@ -366,7 +421,7 @@ func _build_bed(at: Vector3, radius: float) -> void:
 	var bed := MeshInstance3D.new()
 	bed.mesh = soil
 	bed.position = at + Vector3(0, 0.08, 0)
-	add_child(bed)
+	scenery.add_child(bed)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(at.x * 31.0 + at.z)
 	# Edging stones around the rim.
@@ -388,22 +443,22 @@ func _build_bed(at: Vector3, radius: float) -> void:
 	var stone_instance := MultiMeshInstance3D.new()
 	stone_instance.multimesh = stones
 	stone_instance.position = at
-	add_child(stone_instance)
+	scenery.add_child(stone_instance)
 	# Shrubs in the middle, flowers on stems around them.
 	var leaf := _material(Color(0.18, 0.38, 0.14), 1.0)
 	var stem := _material(Color(0.2, 0.45, 0.15), 1.0)
 	var colors := [Color(0.85, 0.3, 0.5), Color(0.95, 0.8, 0.25), Color(0.92, 0.92, 0.96), Color(0.6, 0.35, 0.85)]
 	for i in 3:
 		var angle := i * TAU / 3.0 + rng.randf()
-		Models.add_sphere(self, rng.randf_range(0.25, 0.32), at + Vector3(cos(angle), 0, sin(angle)) * radius * 0.3 + Vector3(0, 0.28, 0), leaf, 0.8)
+		Models.add_sphere(scenery, rng.randf_range(0.25, 0.32), at + Vector3(cos(angle), 0, sin(angle)) * radius * 0.3 + Vector3(0, 0.28, 0), leaf, 0.8)
 	var flowers := int(radius * 14.0)
 	for i in flowers:
 		var angle := i * TAU / flowers + rng.randf() * 0.2
 		var r := rng.randf_range(radius * 0.55, radius - 0.18)
 		var base := at + Vector3(cos(angle) * r, 0.16, sin(angle) * r)
 		var tall := rng.randf_range(0.18, 0.32)
-		Models.add_rod(self, base, base + Vector3(0, tall, 0), 0.01, stem, 4)
-		Models.add_sphere(self, 0.06, base + Vector3(0, tall + 0.02, 0), _material(colors[i % colors.size()], 0.8), 0.6)
+		Models.add_rod(scenery, base, base + Vector3(0, tall, 0), 0.01, stem, 4)
+		Models.add_sphere(scenery, 0.06, base + Vector3(0, tall + 0.02, 0), _material(colors[i % colors.size()], 0.8), 0.6)
 	var body := StaticBody3D.new()
 	var shape := CylinderShape3D.new()
 	shape.radius = radius
@@ -412,7 +467,7 @@ func _build_bed(at: Vector3, radius: float) -> void:
 	collider.shape = shape
 	body.add_child(collider)
 	body.position = at + Vector3(0, 0.3, 0)
-	add_child(body)
+	scenery.add_child(body)
 
 
 func _build_scenery() -> void:
@@ -431,7 +486,7 @@ func _build_house(at: Vector3, size: Vector3, turn: float, wall_color: Color, ro
 	var house := Node3D.new()
 	house.position = at
 	house.rotation_degrees.y = turn
-	add_child(house)
+	scenery.add_child(house)
 	var wall := _material(wall_color, 0.9)
 	var trim := _material(Color(0.95, 0.95, 0.93), 0.7)
 	var glass := Models.glow(Color(0.45, 0.6, 0.72), 0.25)

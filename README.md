@@ -26,6 +26,10 @@ GDScript, and played in the browser.
 - Progress, patches left, speed, time and your best time on screen.
 - Pause with P / Esc, and an automatic pause when the game loses focus.
 - Best time saved in your browser.
+- Plays on phones and tablets with on-screen buttons that appear on touch
+  screens.
+- Low, Medium and High graphics quality (Q to switch, remembered between
+  visits). Phones start on Low; F3 shows frame rate and draw calls.
 
 ## Controls
 
@@ -37,11 +41,15 @@ GDScript, and played in the browser.
 | B | Mower blades on or off |
 | H | Highlight grass you missed |
 | M | Sound off or on |
+| Q | Graphics quality: Low, Medium or High |
+| F3 | Show frame rate and draw calls |
 | P / Esc | Pause or resume |
 | R | Restart the yard |
 
-Click inside the game before using the keyboard. A keyboard and a desktop
-browser with WebGL 2 are required.
+Click inside the game before using the keyboard. On a phone or tablet, tap
+the on-screen buttons instead: arrows to steer, GO and BACK to drive or
+walk, and HOP, BLADES, FIND, SOUND, PAUSE and RESTART. A browser with
+WebGL 2 is required.
 
 ## Work on the game
 
@@ -85,6 +93,14 @@ version and both sums there, and the version noted in `godot/project.godot`.
 - `godot/scripts/models.gd`: the landscaper, the walk cycle and the shared
   shape helpers the mower and scenery are built from.
 - `godot/scripts/sounds.gd`: synthesizes every sound when the yard loads.
+- `godot/scripts/settings.gd`: saved quality and sound settings, checked
+  before use.
+- `godot/scripts/touch_controls.gd`: the on-screen buttons for touch
+  screens.
+
+Everything that never moves (houses, trees, fence, beds) and most of the
+mower and landscaper are merged into a few meshes when the yard loads
+(`Models.bake`), which cut the meshes drawn each frame from 359 to 18.
 
 All models and sounds are generated in code; the game loads no model, texture
 or audio files.
@@ -102,8 +118,8 @@ The full plan is in the project's improvement plan document.
 | 1. Graybox gameplay: weed eater, hop off/on, tests ported | Done |
 | 2. Grass polish: stubble, sway, clippings, gap-free cutting | Done |
 | 3. Visual slice: models, sound, landscaping, minimap (all built in code) | Done |
-| 4. Optimize and QA, quality presets | Next |
-| 5. Release | Planned |
+| 4. Optimize and QA: fewer draw calls, quality presets, touch controls | Done |
+| 5. Release | Next |
 
 The original Python/pygame version was replaced by the Godot version. It is
 still in the git history before the merge that removed it.

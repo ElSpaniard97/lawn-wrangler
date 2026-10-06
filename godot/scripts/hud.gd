@@ -20,6 +20,10 @@ var overlay: PanelContainer
 var overlay_title: Label
 var overlay_body: Label
 var minimap: TextureRect
+var stats: Label
+var quality_name := ""
+var controls: PanelContainer
+var touch := false
 var minimap_mower := Vector2(-1, -1)
 var minimap_heading := 0.0
 var minimap_walker := Vector2(-1, -1)
@@ -72,8 +76,15 @@ func _ready() -> void:
 	minimap.visible = false
 	progress_box.add_child(minimap)
 
-	var controls := _panel(root, Control.PRESET_BOTTOM_LEFT, Vector2(20, -20))
-	controls.add_child(_label("W/S  Drive / walk\nA/D  Steer\nSpace  Hop off or on\nB  Blades on/off\nH  Find missed grass\nM  Sound on/off\nP / Esc  Pause\nR  Restart", 14, Color(0.9, 0.9, 0.9)))
+	controls = _panel(root, Control.PRESET_BOTTOM_LEFT, Vector2(20, -20))
+	controls.add_child(_label("W/S  Drive / walk\nA/D  Steer\nSpace  Hop off or on\nB  Blades on/off\nH  Find missed grass\nM  Sound on/off\nQ  Graphics quality\nP / Esc  Pause\nR  Restart", 14, Color(0.9, 0.9, 0.9)))
+
+	stats = _label("", 13, Color(1, 1, 0.7))
+	stats.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	stats.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	stats.position.y = 8
+	stats.visible = false
+	root.add_child(stats)
 
 	var gauge := _panel(root, Control.PRESET_BOTTOM_RIGHT, Vector2(-20, -20))
 	var gauge_box := VBoxContainer.new()
@@ -108,9 +119,23 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if stats.visible:
+		stats.text = "%d fps   %d draw calls   %s quality" % [Engine.get_frames_per_second(),
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), quality_name]
 	if message_time > 0.0:
 		message_time -= delta
 		message.visible = message_time > 0.0
+
+
+## Hides the keyboard list and words the screens for tapping instead.
+func use_touch() -> void:
+	touch = true
+	controls.visible = false
+
+
+## F3: frame rate, draw calls and the quality level, for checking speed.
+func toggle_stats() -> void:
+	stats.visible = not stats.visible
 
 
 ## Shows a short hint above the bottom edge for a few seconds.
@@ -169,7 +194,7 @@ func _draw_minimap_markers() -> void:
 func show_paused(paused: bool) -> void:
 	overlay.visible = paused
 	overlay_title.text = "Paused"
-	overlay_body.text = "Press P or Esc to keep mowing."
+	overlay_body.text = "Tap Pause to keep mowing." if touch else "Press P or Esc to keep mowing."
 
 
 func show_finished(time: float, best: float, is_record: bool, saved: bool) -> void:
@@ -179,7 +204,7 @@ func show_finished(time: float, best: float, is_record: bool, saved: bool) -> vo
 	lines.append("New personal best!" if is_record else "Personal best %s" % format_time(best))
 	if is_record and not saved:
 		lines.append("This browser blocked saving, so the record lasts this session.")
-	lines.append("Press R to mow again.")
+	lines.append("Tap Restart to mow again." if touch else "Press R to mow again.")
 	overlay_body.text = "\n".join(lines)
 
 
