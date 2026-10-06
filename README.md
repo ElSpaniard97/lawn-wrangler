@@ -27,6 +27,9 @@ GDScript, and played in the browser.
   throws clippings, and tall grass sways in the breeze.
 - Bright summer lighting with a warm sun, soft shadows, light haze and a
   ring of distant trees.
+- Photo textures: grass detail on the lawn, wood fence, sided houses with
+  shingled roofs and stone chimneys, mulch beds, stone edging, leafy trees,
+  and a paver patio and concrete driveway.
 - Missed-patch highlight with H, switched on automatically at 95%.
 - Progress, patches left, speed, time and your best time on screen.
 - Pause with P / Esc, and an automatic pause when the game loses focus.
@@ -107,8 +110,11 @@ Everything that never moves (houses, trees, fence, beds) and most of the
 mower and landscaper are merged into a few meshes when the yard loads
 (`Models.bake`), which cut the meshes drawn each frame from 359 to 18.
 
-All models and sounds are generated in code; the game loads no model, texture
-or audio files.
+All models and sounds are generated in code; the game loads no model or
+audio files. Scenery uses the photo textures in `godot/textures/`, projected
+from world space so they work on the baked meshes, and the lawn's ground uses
+`godot/shaders/ground.gdshader` to add grass detail under the stripes.
+- `ASSET_LICENSES.md`: where each texture came from.
 - `godot/tests/run_tests.gd`: headless tests, run in CI before every deploy.
 - `web/index.html`: the landing page that frames the game.
 - `web/credits.html`: credits and the Godot Engine license.
@@ -117,8 +123,8 @@ or audio files.
 ## Credits
 
 Made by Zeke with [Godot Engine](https://godotengine.org) 4.7.2 (MIT license).
-Every model, texture and sound is generated in code, so there are no outside
-art or sound files to credit. The full Godot license notice is on the game's
+Every model and sound is generated in code. The photo textures come from a
+texture sheet Zeke supplied; see [ASSET_LICENSES.md](ASSET_LICENSES.md). The full Godot license notice is on the game's
 [credits page](https://ElSpaniard97.github.io/lawn-wrangler/credits.html).
 
 ## Roadmap
@@ -134,7 +140,7 @@ The full plan is in the project's improvement plan document.
 | 3. Visual slice: models, sound, landscaping, minimap (all built in code) | Done |
 | 4. Optimize and QA: fewer draw calls, quality presets, touch controls | Done |
 | 5. Release 1.0: credits, release checklist, rollback plan | Done |
-| 6. Realism pass: lighting, thicker grass, real stripes, CC0 textures | In progress |
+| 6. Realism pass: lighting, thicker grass, real stripes, photo textures | In progress |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling

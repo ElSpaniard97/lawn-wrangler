@@ -1,7 +1,8 @@
 class_name Models
 ## Models built in code from Godot's primitive meshes: the landscaper, the
 ## weed eater and clippings, plus small helpers the mower and scenery use.
-## No outside model or texture files are loaded.
+## Scenery surfaces can use the photo textures in res://textures (listed in
+## ASSET_LICENSES.md); no outside model files are loaded.
 
 const SHIRT := Color(0.24, 0.27, 0.31)
 const PANTS := Color(0.26, 0.30, 0.38)
@@ -24,6 +25,27 @@ static func material(color: Color, roughness := 0.8, transparent := false) -> St
 	if transparent:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_materials[key] = m
+	return m
+
+
+## A photo-textured material. The texture is projected from world space
+## (triplanar), so it needs no UVs, survives `bake`, and keeps the same
+## real-world size on every part. `tile` is how many metres one copy of the
+## texture covers. `tint` multiplies the photo's own colours.
+static func textured(texture_name: String, tint := Color.WHITE, tile := 1.0, roughness := 0.9) -> StandardMaterial3D:
+	var key := "tex|%s|%s|%s|%s" % [texture_name, tint.to_html(), tile, roughness]
+	if _materials.has(key):
+		return _materials[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load("res://textures/%s.jpg" % texture_name)
+	m.albedo_color = tint
+	m.roughness = roughness
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_triplanar_sharpness = 4.0
+	m.uv1_scale = Vector3.ONE / tile
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	_materials[key] = m
 	return m
 
