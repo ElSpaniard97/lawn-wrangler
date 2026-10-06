@@ -267,27 +267,40 @@ func _setup_input() -> void:
 
 
 func _build_environment() -> void:
+	# Bright summer afternoon: deep blue sky, warm low sun, a little haze so
+	# the distance fades instead of ending in a hard line.
 	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(0.32, 0.55, 0.85)
-	sky_material.sky_horizon_color = Color(0.75, 0.84, 0.92)
-	sky_material.ground_horizon_color = Color(0.6, 0.65, 0.55)
+	sky_material.sky_top_color = Color(0.18, 0.42, 0.85)
+	sky_material.sky_horizon_color = Color(0.68, 0.80, 0.92)
+	sky_material.sky_curve = 0.12
+	sky_material.ground_horizon_color = Color(0.45, 0.55, 0.40)
+	sky_material.ground_bottom_color = Color(0.20, 0.30, 0.15)
+	sky_material.sun_angle_max = 20.0
 	var sky := Sky.new()
 	sky.sky_material = sky_material
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.45
+	env.ambient_light_energy = 0.5
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.66, 0.78, 0.90)
+	env.fog_density = 0.0015
+	env.fog_sky_affect = 0.0
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.12
+	env.adjustment_contrast = 1.06
 	var world := WorldEnvironment.new()
 	world.environment = env
 	add_child(world)
 
 	sun = DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, -35, 0)
-	sun.light_energy = 1.0
-	sun.light_color = Color(1.0, 0.96, 0.88)
+	sun.rotation_degrees = Vector3(-42, -35, 0)
+	sun.light_energy = 1.35
+	sun.light_color = Color(1.0, 0.93, 0.80)
 	sun.shadow_enabled = true
+	sun.shadow_blur = 1.5
 	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
 
@@ -298,8 +311,8 @@ func _build_environment() -> void:
 	floor_body.add_child(floor_shape)
 	add_child(floor_body)
 	var outer := PlaneMesh.new()
-	outer.size = Vector2(120, 120)
-	outer.material = _material(Color(0.16, 0.28, 0.09), 1.0)
+	outer.size = Vector2(200, 200)
+	outer.material = _material(Color(0.20, 0.36, 0.10), 1.0)
 	var outer_instance := MeshInstance3D.new()
 	outer_instance.mesh = outer
 	outer_instance.position = Vector3(YARD_SIZE / 2.0, -0.02, YARD_SIZE / 2.0)
@@ -381,8 +394,8 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false)
 		trunk_mesh.height = 2.4 * scale_factor
 		trunk_mesh.material = bark
 		Models.add_mesh(scenery, trunk_mesh, at + Vector3(0, trunk_mesh.height / 2.0, 0))
-		var shade := 0.04 * sin(at.x * 1.7 + at.z)
-		var leaves := _material(Color(0.20 + shade, 0.42 + shade, 0.16), 1.0)
+		var shade := 0.04 * roundf(sin(at.x * 1.7 + at.z)) # three shades, so trees share materials
+		var leaves := _material(Color(0.24 + shade, 0.48 + shade, 0.14), 1.0)
 		for blob in [[Vector3(0, 3.0, 0), 1.5], [Vector3(0.8, 2.6, 0.3), 1.0], [Vector3(-0.7, 2.7, -0.4), 1.1], [Vector3(0.1, 3.7, 0.2), 1.0]]:
 			Models.add_sphere(scenery, blob[1] * scale_factor, at + blob[0] * scale_factor, leaves)
 	if collide:
@@ -481,6 +494,14 @@ func _build_scenery() -> void:
 	var spots := [Vector3(-4, 0, 1), Vector3(-5, 0, 18), Vector3(24.5, 0, 2), Vector3(24, 0, 19), Vector3(18, 0, 26), Vector3(3, 0, 26), Vector3(10, 0, 30)]
 	for i in spots.size():
 		_build_tree(spots[i], 1.3 if i % 2 else 1.1, false, i % 2 == 0)
+	# A ring of distant trees hides the edge of the world.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	for i in 26:
+		var angle := i * TAU / 26.0 + rng.randf_range(-0.08, 0.08)
+		var distance := rng.randf_range(34.0, 46.0)
+		var spot := Vector3(YARD_SIZE / 2.0 + cos(angle) * distance, 0, YARD_SIZE / 2.0 + sin(angle) * distance)
+		_build_tree(spot, rng.randf_range(1.6, 2.4), false, rng.randf() < 0.35)
 
 
 ## A house facing local +Z: walls, roof with overhang, chimney, windows,

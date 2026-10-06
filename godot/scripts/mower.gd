@@ -67,7 +67,7 @@ func _physics_process(delta: float) -> void:
 	var newly_cut := 0
 	if cutting and lawn and measured_speed > 0.05:
 		# Mowing along X and along Z leaves the two stripe shades.
-		var stripe := LawnGrid.STRIPE_A if absf(forward.x) >= absf(forward.z) else LawnGrid.STRIPE_B
+		var stripe := LawnGrid.stripe_for(forward)
 		var blade := to_global(blade_offset)
 		newly_cut = lawn.cut_segment(last_blade if has_last_blade else blade, blade, cut_radius, stripe)
 		last_blade = blade

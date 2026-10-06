@@ -24,6 +24,13 @@ func _init() -> void:
 	reset()
 
 
+## Which stripe shade a pass leaves. Like a real lawn, going one way along
+## a line and coming back the other way leave a light and a dark stripe.
+static func stripe_for(direction: Vector3) -> int:
+	var lead := direction.x if absf(direction.x) >= absf(direction.z) else direction.z
+	return STRIPE_A if lead >= 0.0 else STRIPE_B
+
+
 ## Clears every cell to tall grass. Mark blocked cells, then call seal_layout().
 func reset() -> void:
 	cells.resize(columns * rows)

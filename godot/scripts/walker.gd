@@ -54,7 +54,7 @@ func _physics_process(delta: float) -> void:
 	stride = fmod(stride + measured_speed * delta * 4.5, TAU) if pace > 0.05 else 0.0
 	Models.animate_walk(person, stride, pace, true)
 	if lawn:
-		var stripe := LawnGrid.STRIPE_A if absf(forward.x) >= absf(forward.z) else LawnGrid.STRIPE_B
+		var stripe := LawnGrid.stripe_for(forward)
 		var tip := tip_position()
 		var newly_cut := lawn.cut_segment(last_tip if has_last_tip else tip, tip, cut_radius, stripe)
 		last_tip = tip

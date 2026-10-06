@@ -18,6 +18,7 @@ func _initialize() -> void:
 	test_blocked_cells_never_count()
 	test_saved_record_rejects_bad_data()
 	test_swept_cut_leaves_no_gaps()
+	test_back_and_forth_passes_alternate_stripes()
 	await test_mower_drives_cuts_and_stays_in_yard()
 	await test_pause_freezes_time_and_position()
 	await test_hop_off_parks_mower_and_hop_back_on()
@@ -472,3 +473,11 @@ func test_resize_keeps_touch_buttons_on_screen() -> void:
 		check(inside, "touch buttons stay on screen at %s (visible %s)" % [size, screen.size])
 	root.size = original
 	await end_yard(yard)
+
+
+func test_back_and_forth_passes_alternate_stripes() -> void:
+	check(LawnGrid.stripe_for(Vector3(0, 0, -1)) != LawnGrid.stripe_for(Vector3(0, 0, 1)), "up and back along a line leave different stripes")
+	check(LawnGrid.stripe_for(Vector3(1, 0, 0.2)) != LawnGrid.stripe_for(Vector3(-1, 0, -0.2)), "across and back leave different stripes")
+	var view := LawnView.new()
+	check(view._cut_data(LawnGrid.STRIPE_A).g > view._cut_data(LawnGrid.STRIPE_B).g, "stubble on a light stripe is drawn lighter")
+	view.free()
