@@ -1,19 +1,30 @@
 extends Node3D
-## Phase 0 test yard: 20 x 20 m of cuttable lawn inside a fence, one tree
-## in a mulch ring, one flower bed, a mower and a chase camera.
+## The yard: 20 x 20 m of lawn inside a fence, two trees in stone rings and
+## two flower beds. Ride the mower for the open lawn, then hop off and use
+## the weed eater along the fence and around the trees and beds.
 
 const YARD_SIZE := 20.0
-const TREE_AT := Vector2(13.0, 7.0)
-const BED_AT := Vector2(5.0, 12.5)
-const BED_RADIUS := 1.0
+## Trees: x, z. Each sits in a stone ring the mower cannot drive over.
+const TREES := [Vector2(13.0, 7.0), Vector2(5.5, 4.5)]
+const RING_RADIUS := 0.6
+## Flower beds: x, z, radius.
+const BEDS := [Vector3(5.0, 12.5, 1.0), Vector3(15.0, 15.0, 1.3)]
 const WIN_PERCENT := 99.0
 const MPS_TO_MPH := 2.237
+const REMOUNT_DISTANCE := 1.8
+## Past this, missed patches light up on their own, like the original game.
+const AUTO_HIGHLIGHT_PERCENT := 95.0
 
 var lawn: LawnGrid
 var view: LawnView
 var mower: Mower
+var walker: Walker
+var camera: ChaseCamera
 var run: RunState
 var hud: Hud
+var floor_body: StaticBody3D
+var on_mower := true
+var auto_highlighted := false
 
 
 func _ready() -> void:
@@ -25,8 +36,10 @@ func _ready() -> void:
 	lawn.name = "LawnGrid"
 	add_child(lawn)
 	lawn.reset()
-	lawn.block_circle(TREE_AT.x, TREE_AT.y, 0.9)
-	lawn.block_circle(BED_AT.x, BED_AT.y, BED_RADIUS + 0.2)
+	for tree in TREES:
+		lawn.block_circle(tree.x, tree.y, RING_RADIUS)
+	for bed in BEDS:
+		lawn.block_circle(bed.x, bed.y, bed.z)
 	lawn.seal_layout()
 
 	view = LawnView.new()
@@ -35,8 +48,10 @@ func _ready() -> void:
 	view.build(lawn)
 
 	_build_fence()
-	_build_tree(Vector3(TREE_AT.x, 0, TREE_AT.y), 1.0, true)
-	_build_bed()
+	for tree in TREES:
+		_build_tree(Vector3(tree.x, 0, tree.y), 1.0, true)
+	for bed in BEDS:
+		_build_bed(Vector3(bed.x, 0, bed.y), bed.z)
 	_build_scenery()
 
 	mower = Mower.new()
@@ -46,7 +61,13 @@ func _ready() -> void:
 	add_child(mower)
 	mower.global_position = Vector3(2.0, 0.05, 16.5)
 
-	var camera := ChaseCamera.new()
+	walker = Walker.new()
+	walker.name = "Walker"
+	walker.lawn = lawn
+	add_child(walker)
+	walker.set_active(false)
+
+	camera = ChaseCamera.new()
 	camera.process_mode = Node.PROCESS_MODE_PAUSABLE
 	camera.target = mower
 	add_child(camera)
@@ -56,13 +77,21 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	run.finished_run.connect(_on_finished)
+	hud.say("Mow the open lawn, then press Space to hop off and trim the edges.", 5.0)
 
 
 func _process(_delta: float) -> void:
 	var percent := lawn.percent_cut()
 	if percent >= WIN_PERCENT and not run.finished:
 		run.finish_run()
-	hud.update_play(percent, mower.measured_speed * MPS_TO_MPH, mower.blades_on, run.elapsed, run.best)
+	elif percent >= AUTO_HIGHLIGHT_PERCENT and not auto_highlighted:
+		auto_highlighted = true
+		if not view.highlight:
+			view.set_highlight(true)
+			hud.say("Almost there! The last patches are highlighted in yellow.")
+	var speed := mower.measured_speed if on_mower else walker.measured_speed
+	hud.update_play(percent, lawn.total - lawn.cut_count, speed * MPS_TO_MPH, not on_mower,
+		mower.blades_on, run.elapsed, run.best)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -74,8 +103,55 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("restart"):
 		get_tree().paused = false
 		get_tree().reload_current_scene()
-	elif event.is_action_pressed("toggle_blades") and not get_tree().paused:
+	elif get_tree().paused or run.finished:
+		return
+	elif event.is_action_pressed("hop"):
+		toggle_mower()
+	elif event.is_action_pressed("toggle_blades") and on_mower:
 		mower.toggle_blades()
+	elif event.is_action_pressed("highlight"):
+		view.set_highlight(not view.highlight)
+
+
+## Hops off beside the mower where there is room, or back on when close.
+func toggle_mower() -> bool:
+	if on_mower:
+		for side in [Vector3(-1.0, 0, 0), Vector3(1.0, 0, 0), Vector3(0, 0, 1.4), Vector3(0, 0, -1.4)]:
+			var spot := mower.to_global(side)
+			spot.y = 0.0
+			if _walker_fits(spot):
+				walker.global_position = spot
+				walker.global_rotation.y = mower.global_rotation.y
+				walker.set_active(true)
+				mower.set_driving(false)
+				camera.follow(walker, 3.2)
+				on_mower = false
+				hud.say("Weed eater out! Trim along the fence and around the beds.")
+				return true
+		hud.say("No room to step off here.")
+		return false
+	if walker.global_position.distance_to(mower.global_position) > REMOUNT_DISTANCE:
+		hud.say("Walk over to the mower to hop back on.")
+		return false
+	walker.set_active(false)
+	mower.set_driving(true)
+	camera.follow(mower, 4.5)
+	on_mower = true
+	hud.say("Back on the mower.")
+	return true
+
+
+func _walker_fits(spot: Vector3) -> bool:
+	if spot.x < 0.3 or spot.z < 0.3 or spot.x > YARD_SIZE - 0.3 or spot.z > YARD_SIZE - 0.3:
+		return false
+	var shape := CapsuleShape3D.new()
+	shape.radius = 0.25
+	shape.height = 1.7
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = shape
+	query.transform = Transform3D(Basis(), spot + Vector3(0, 0.9, 0))
+	query.exclude = [floor_body.get_rid()]
+	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 
 func _notification(what: int) -> void:
@@ -85,6 +161,7 @@ func _notification(what: int) -> void:
 
 func _on_finished(time: float, is_record: bool) -> void:
 	mower.set_physics_process(false)
+	walker.set_physics_process(false)
 	hud.show_finished(time, run.best, is_record, run.storage_ok)
 
 
@@ -95,6 +172,8 @@ func _setup_input() -> void:
 		"steer_left": [KEY_A, KEY_LEFT],
 		"steer_right": [KEY_D, KEY_RIGHT],
 		"toggle_blades": [KEY_B],
+		"hop": [KEY_SPACE],
+		"highlight": [KEY_H],
 		"pause": [KEY_P, KEY_ESCAPE],
 		"restart": [KEY_R],
 	}
@@ -134,7 +213,7 @@ func _build_environment() -> void:
 	add_child(sun)
 
 	# Flat ground: a collider under the yard and a darker lawn beyond the fence.
-	var floor_body := StaticBody3D.new()
+	floor_body = StaticBody3D.new()
 	var floor_shape := CollisionShape3D.new()
 	floor_shape.shape = WorldBoundaryShape3D.new()
 	floor_body.add_child(floor_shape)
@@ -209,9 +288,27 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool) -> void:
 		canopy.position = at + blob[0] * scale_factor
 		add_child(canopy)
 	if collide:
+		var ring := CylinderMesh.new()
+		ring.top_radius = RING_RADIUS
+		ring.bottom_radius = RING_RADIUS + 0.03
+		ring.height = 0.2
+		ring.material = _material(Color(0.55, 0.53, 0.50), 0.9)
+		var ring_instance := MeshInstance3D.new()
+		ring_instance.mesh = ring
+		ring_instance.position = at + Vector3(0, 0.1, 0)
+		add_child(ring_instance)
+		var mulch := CylinderMesh.new()
+		mulch.top_radius = RING_RADIUS - 0.06
+		mulch.bottom_radius = RING_RADIUS - 0.06
+		mulch.height = 0.02
+		mulch.material = _material(Color(0.30, 0.20, 0.13), 1.0)
+		var mulch_instance := MeshInstance3D.new()
+		mulch_instance.mesh = mulch
+		mulch_instance.position = at + Vector3(0, 0.205, 0)
+		add_child(mulch_instance)
 		var body := StaticBody3D.new()
 		var shape := CylinderShape3D.new()
-		shape.radius = 0.25
+		shape.radius = RING_RADIUS
 		shape.height = 2.0
 		var collider := CollisionShape3D.new()
 		collider.shape = shape
@@ -220,11 +317,10 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool) -> void:
 		add_child(body)
 
 
-func _build_bed() -> void:
-	var at := Vector3(BED_AT.x, 0, BED_AT.y)
+func _build_bed(at: Vector3, radius: float) -> void:
 	var soil := CylinderMesh.new()
-	soil.top_radius = BED_RADIUS
-	soil.bottom_radius = BED_RADIUS + 0.05
+	soil.top_radius = radius
+	soil.bottom_radius = radius + 0.05
 	soil.height = 0.16
 	soil.material = _material(Color(0.30, 0.21, 0.14), 1.0)
 	var bed := MeshInstance3D.new()
@@ -232,11 +328,11 @@ func _build_bed() -> void:
 	bed.position = at + Vector3(0, 0.08, 0)
 	add_child(bed)
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 3
+	rng.seed = int(at.x * 31.0 + at.z)
 	var colors := [Color(0.85, 0.35, 0.55), Color(0.95, 0.8, 0.3), Color(0.9, 0.9, 0.95)]
 	for i in 9:
 		var angle := i * TAU / 9.0 + rng.randf() * 0.3
-		var r := rng.randf_range(0.2, BED_RADIUS - 0.25)
+		var r := rng.randf_range(0.2, radius - 0.25)
 		var shrub := SphereMesh.new()
 		shrub.radius = rng.randf_range(0.18, 0.28)
 		shrub.height = shrub.radius * 1.6
@@ -247,7 +343,7 @@ func _build_bed() -> void:
 		add_child(instance)
 	var body := StaticBody3D.new()
 	var shape := CylinderShape3D.new()
-	shape.radius = BED_RADIUS
+	shape.radius = radius
 	shape.height = 0.6
 	var collider := CollisionShape3D.new()
 	collider.shape = shape

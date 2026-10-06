@@ -5,8 +5,8 @@ config_version=5
 
 [application]
 
-config/name="Lawn Wrangler 3D"
-config/description="Phase 0 preview: a small 3D test yard."
+config/name="Lawn Wrangler"
+config/description="Mow the lawn, trim the edges, beat your best time."
 run/main_scene="res://scenes/yard.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 

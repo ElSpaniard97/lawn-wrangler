@@ -11,10 +11,14 @@ instead of opening a public issue.
 
 ## How the project is protected
 
-- GitHub Actions are pinned to full commit SHAs, and Python packages are pinned
-  with hashes in `requirements.txt`. Dependabot proposes updates.
+- GitHub Actions are pinned to full commit SHAs, and Dependabot proposes
+  updates.
+- Godot and its web export template are downloaded from the official release
+  and checked against pinned SHA-512 sums before every build.
 - Tests must pass before the site builds and deploys.
 - The landing page sets a Content Security Policy that only allows its own
   inline script and the game frame from this site.
-- The saved best time is parsed as JSON and ignored unless it is a positive,
+- The saved best time is plain JSON and is ignored unless it is a positive,
   finite number.
+- No third-party assets or Godot add-ons are used yet; any added later are
+  listed with their source and license.

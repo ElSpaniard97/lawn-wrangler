@@ -1,8 +1,8 @@
-# Tests the game, builds it for the web (pygbag for /play/, Godot for the
-# /preview-3d/ test yard) and publishes it to GitHub Pages
-# every time you push to the main branch. Pull requests run the tests only.
+# Tests the Godot game, exports it for the web and publishes it to GitHub
+# Pages every time you push to the main branch. Pull requests run the tests only.
 # Actions are pinned to full commit SHAs (version in the comment) so a moved tag
-# cannot change what runs here; Dependabot keeps them up to date.
+# cannot change what runs here; Dependabot keeps them up to date. Godot itself
+# is downloaded and checksum-verified by .github/scripts/setup-godot.sh.
 name: Publish game to GitHub Pages
 
 on:
@@ -23,21 +23,25 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          python-version: "3.12"
-      - name: Install pinned dependencies
-        run: pip install --require-hashes -r requirements.txt
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-4.7.2-stable-web-${{ hashFiles('.github/scripts/setup-godot.sh') }}
+      - name: Install pinned Godot (checksum verified)
+        run: .github/scripts/setup-godot.sh
       - name: Run tests
-        env:
-          SDL_VIDEODRIVER: dummy
-          SDL_AUDIODRIVER: dummy
-        run: python -m unittest discover -s tests -v
+        run: |
+          godot --headless --path godot --import
+          godot --headless --path godot --script res://tests/run_tests.gd
 
-  test-3d:
+  build:
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -51,46 +55,14 @@ jobs:
           key: godot-4.7.2-stable-web-${{ hashFiles('.github/scripts/setup-godot.sh') }}
       - name: Install pinned Godot (checksum verified)
         run: .github/scripts/setup-godot.sh
-      - name: Run 3D preview tests
-        run: |
-          godot --headless --path godot --import
-          godot --headless --path godot --script res://tests/run_tests.gd
-
-  build:
-    needs: [test, test-3d]
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-      - name: Build web version
-        run: |
-          pip install --require-hashes -r requirements.txt
-          python -m pygbag --build game
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/godot
-            ~/.local/share/godot/export_templates
-          key: godot-4.7.2-stable-web-${{ hashFiles('.github/scripts/setup-godot.sh') }}
-      - name: Install pinned Godot (checksum verified)
-        run: .github/scripts/setup-godot.sh
-      - name: Export 3D preview
-        run: |
-          mkdir -p site/preview-3d
-          godot --headless --path godot --import
-          godot --headless --path godot --export-release Web ../site/preview-3d/index.html
-          test -f site/preview-3d/index.wasm
-      - name: Assemble game page
+      - name: Export game
         run: |
           mkdir -p site/play
-          cp -R game/build/web/. site/play/
+          godot --headless --path godot --import
+          godot --headless --path godot --export-release Web ../site/play/index.html
+          test -f site/play/index.wasm
           cp web/index.html site/index.html
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: site
 
@@ -106,4 +78,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
