@@ -24,7 +24,11 @@ func _initialize() -> void:
 	await test_finish_once_and_record_survives_reload()
 	await test_highlight_and_finish_screens()
 	await test_cut_grass_becomes_stubble_and_throws_clippings()
+	await test_sounds_follow_what_you_are_doing()
+	await test_walk_animation_and_minimap()
+	await test_everything_is_built_in_code()
 	_remove_test_save()
+	Models._materials.clear()
 	print("%s: %d failure(s)" % ["FAILED" if failures else "OK", failures])
 	quit(1 if failures else 0)
 
@@ -52,7 +56,9 @@ func end_yard(yard: Node3D) -> void:
 		Input.action_release(action)
 	paused = false
 	yard.queue_free()
-	await process_frame
+	# The audio server lets go of stopped sounds a frame or two later.
+	for i in 3:
+		await process_frame
 
 
 func _remove_test_save() -> void:
@@ -270,4 +276,69 @@ func test_cut_grass_becomes_stubble_and_throws_clippings() -> void:
 	check(saw_clippings, "mowing tall grass throws clippings")
 	await frames(60)
 	check(not yard.mower.clippings.emitting, "no clippings once the mower stops")
+	await end_yard(yard)
+
+
+func test_sounds_follow_what_you_are_doing() -> void:
+	var yard := await new_yard()
+	var sounds: Sounds = yard.sounds
+	for player in [sounds.engine, sounds.blades, sounds.trimmer, sounds.rustle]:
+		var wave: AudioStreamWAV = player.stream
+		check(wave.loop_mode == AudioStreamWAV.LOOP_FORWARD and wave.data.size() == Sounds.RATE * 2, "%s is a one-second generated loop" % player.name)
+	check(sounds.chime_player.stream.loop_mode == AudioStreamWAV.LOOP_DISABLED, "finish chime plays once")
+	Input.action_press("accelerate")
+	await frames(60)
+	check(sounds.targets[sounds.engine] > 0.6, "engine gets louder with speed")
+	check(sounds.engine.pitch_scale > 1.2, "engine pitch rises with speed")
+	check(sounds.targets[sounds.blades] > 0.0 and sounds.targets[sounds.rustle] > 0.0, "blades whir and grass rustles while mowing")
+	check(sounds.engine.volume_linear > 0.3, "engine fades in")
+	Input.action_release("accelerate")
+	yard.mower.blades_on = false
+	await frames(5)
+	check(sounds.targets[sounds.blades] == 0.0, "blades fall silent when switched off")
+	yard.toggle_mower()
+	await frames(5)
+	check(sounds.targets[sounds.trimmer] > 0.0 and sounds.targets[sounds.engine] < 0.2, "weed eater buzzes and the parked mower idles")
+	check(Sounds.toggle_mute() and AudioServer.is_bus_mute(0), "M mutes the game")
+	check(not Sounds.toggle_mute() and not AudioServer.is_bus_mute(0), "M again unmutes it")
+	yard.run.finish_run()
+	await frames(5)
+	check(sounds.targets[sounds.trimmer] == 0.0, "trimmer stops once the lawn is done")
+	await end_yard(yard)
+
+
+func test_walk_animation_and_minimap() -> void:
+	var yard := await new_yard()
+	var hud: Hud = yard.hud
+	check(hud.minimap.visible and hud.minimap.texture == yard.view.texture, "minimap shows the lawn")
+	await frames(2)
+	var expected: Vector2 = yard.map_point(yard.mower.global_position)
+	check(hud.minimap_mower.is_equal_approx(expected) and expected.y > 0.7, "minimap marks the mower near the bottom")
+	check(hud.minimap_walker.x < 0.0, "no walker marker while riding")
+	yard.toggle_mower()
+	var leg: Node3D = yard.walker.person.get_node("LeftLeg")
+	Input.action_press("accelerate")
+	var swing := 0.0
+	for i in 40:
+		await physics_frame
+		swing = maxf(swing, absf(leg.rotation.x))
+	Input.action_release("accelerate")
+	check(swing > 0.2, "legs swing while walking (%.2f)" % swing)
+	await frames(3)
+	check(is_zero_approx(leg.rotation.x), "legs come to rest when standing")
+	check(hud.minimap_walker.x >= 0.0, "minimap marks the walker on foot")
+	await end_yard(yard)
+
+
+func test_everything_is_built_in_code() -> void:
+	var yard := await new_yard()
+	var loaded := []
+	var meshes := 0
+	for node in yard.find_children("*", "MeshInstance3D", true, false):
+		meshes += 1
+		var path: String = node.mesh.resource_path
+		if path != "" and not path.contains("::"):
+			loaded.append(path)
+	check(meshes > 100, "yard is dressed with models (%d meshes)" % meshes)
+	check(loaded.is_empty(), "no model files are loaded: %s" % [loaded])
 	await end_yard(yard)

@@ -86,27 +86,62 @@ func set_driving(value: bool) -> void:
 	driver.visible = value
 
 
+## A zero-turn style mower: wide cutting deck in front, big drive wheels
+## and the engine at the back, a high-back seat, lap bars and a roll bar.
 func _build_visual() -> void:
 	var orange := Models.material(ORANGE, 0.45)
 	var dark := Models.material(DARK, 0.8)
-	var seat := Models.material(Color(0.08, 0.08, 0.08), 0.6)
+	var black := Models.material(Color(0.05, 0.05, 0.05), 0.6)
+	var steel := Models.material(Color(0.62, 0.63, 0.65), 0.35)
+	var rubber := Models.material(Color(0.07, 0.07, 0.07), 0.95)
 
-	Models.add_box(self, Vector3(1.1, 0.18, 1.0), Vector3(0, 0.32, -0.15), orange) # cutting deck
-	Models.add_box(self, Vector3(0.62, 0.3, 0.75), Vector3(0, 0.55, 0.35), orange) # engine body
-	Models.add_box(self, Vector3(0.5, 0.08, 0.45), Vector3(0, 0.74, 0.05), seat) # seat base
-	Models.add_box(self, Vector3(0.5, 0.4, 0.08), Vector3(0, 0.95, 0.27), seat) # seat back
-	Models.add_box(self, Vector3(0.06, 0.45, 0.06), Vector3(-0.32, 0.85, -0.2), dark) # lap bars
-	Models.add_box(self, Vector3(0.06, 0.45, 0.06), Vector3(0.32, 0.85, -0.2), dark)
+	# Frame and cutting deck with its skirt and side discharge chute.
+	Models.add_box(self, Vector3(0.62, 0.1, 1.35), Vector3(0, 0.3, 0.02), dark)
+	Models.add_box(self, Vector3(1.06, 0.13, 0.66), Vector3(0, 0.24, -0.33), orange)
+	Models.add_box(self, Vector3(1.1, 0.05, 0.7), Vector3(0, 0.16, -0.33), dark)
+	for x in [-0.33, 0.0, 0.33]:
+		Models.add_cylinder(self, 0.07, 0.05, Vector3(x, 0.32, -0.33), dark) # spindle caps
+	Models.add_box(self, Vector3(0.18, 0.12, 0.3), Vector3(0.6, 0.2, -0.3), dark, Vector3(0, 0, -12))
 
-	for spec in [[-0.6, 0.4, 0.28, 0.24], [0.6, 0.4, 0.28, 0.24], [-0.45, -0.6, 0.15, 0.12], [0.45, -0.6, 0.15, 0.12]]:
-		var tire := CylinderMesh.new()
-		tire.top_radius = spec[2]
-		tire.bottom_radius = spec[2]
-		tire.height = spec[3]
-		tire.material = dark
-		var wheel := Models.add_mesh(self, tire, Vector3(spec[0], spec[2], spec[1]))
+	# Footrest and front panel with headlights.
+	Models.add_box(self, Vector3(0.56, 0.04, 0.34), Vector3(0, 0.42, -0.52), dark)
+	Models.add_box(self, Vector3(0.56, 0.2, 0.05), Vector3(0, 0.52, -0.7), orange)
+	for x in [-0.18, 0.18]:
+		Models.add_cylinder(self, 0.045, 0.03, Vector3(x, 0.55, -0.73), Models.glow(Color(1.0, 0.95, 0.75), 1.5), Vector3(90, 0, 0))
+
+	# Seat on a pedestal, high back.
+	Models.add_box(self, Vector3(0.3, 0.3, 0.3), Vector3(0, 0.5, 0.1), dark)
+	Models.add_box(self, Vector3(0.52, 0.1, 0.46), Vector3(0, 0.71, 0.06), black)
+	Models.add_box(self, Vector3(0.5, 0.48, 0.1), Vector3(0, 0.98, 0.3), black, Vector3(-10, 0, 0))
+
+	# Engine, fuel tanks over the fenders and the muffler.
+	Models.add_box(self, Vector3(0.5, 0.36, 0.34), Vector3(0, 0.56, 0.55), dark)
+	Models.add_box(self, Vector3(0.42, 0.12, 0.28), Vector3(0, 0.8, 0.55), orange)
+	Models.add_cylinder(self, 0.05, 0.42, Vector3(0, 0.5, 0.74), steel, Vector3(0, 0, 90))
+	for side in [-1, 1]:
+		Models.add_box(self, Vector3(0.28, 0.05, 0.62), Vector3(0.58 * side, 0.64, 0.4), orange)
+		Models.add_box(self, Vector3(0.2, 0.12, 0.26), Vector3(0.36 * side, 0.74, 0.12), orange) # fuel tank
+		Models.add_cylinder(self, 0.035, 0.03, Vector3(0.36 * side, 0.81, 0.12), black)
+
+	# Lap bars the driver holds, and the roll bar behind the seat.
+	for side in [-1, 1]:
+		Models.add_rod(self, Vector3(0.36 * side, 0.6, -0.08), Vector3(0.36 * side, 0.96, -0.28), 0.022, steel)
+		Models.add_rod(self, Vector3(0.36 * side, 0.96, -0.28), Vector3(0.1 * side, 0.96, -0.36), 0.026, black)
+		Models.add_rod(self, Vector3(0.42 * side, 0.66, 0.36), Vector3(0.42 * side, 1.62, 0.36), 0.03, dark)
+	Models.add_rod(self, Vector3(-0.42, 1.62, 0.36), Vector3(0.42, 1.62, 0.36), 0.03, dark)
+
+	# Wheels: each is a pivot whose local Y is the axle, so it spins in place.
+	for spec in [[-0.6, 0.4, 0.28, 0.22], [0.6, 0.4, 0.28, 0.22], [-0.42, -0.62, 0.13, 0.1], [0.42, -0.62, 0.13, 0.1]]:
+		var wheel := Node3D.new()
+		wheel.position = Vector3(spec[0], spec[2], spec[1])
 		wheel.rotation.z = PI / 2.0
+		add_child(wheel)
+		Models.add_cylinder(wheel, spec[2], spec[3], Vector3.ZERO, rubber, Vector3.ZERO, 20)
+		Models.add_cylinder(wheel, spec[2] * 0.55, spec[3] + 0.02, Vector3.ZERO, steel)
+		Models.add_box(wheel, Vector3(spec[2] * 1.1, spec[3] + 0.03, 0.04), Vector3.ZERO, dark) # spoke so it reads as turning
 		wheels.append(wheel)
+		if spec[1] < 0.0:
+			Models.add_box(self, Vector3(0.04, 0.2, 0.05), Vector3(spec[0], spec[2] + 0.12, spec[1]), dark) # caster fork
 
 	var disc := CylinderMesh.new()
 	disc.top_radius = cut_radius
@@ -119,6 +154,8 @@ func _build_visual() -> void:
 	clippings.position = Vector3(blade_offset.x, 0.1, blade_offset.z)
 	add_child(clippings)
 
-	driver = Models.person(true)
-	driver.position = Vector3(0, 0.78, 0.08)
+	# The seated person's hips sit at this node's origin, on the cushion.
+	driver = Node3D.new()
+	driver.position = Vector3(0, 0.77, 0.12)
+	driver.add_child(Models.person(true))
 	add_child(driver)

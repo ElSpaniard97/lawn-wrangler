@@ -19,6 +19,10 @@ var message_time := 0.0
 var overlay: PanelContainer
 var overlay_title: Label
 var overlay_body: Label
+var minimap: TextureRect
+var minimap_mower := Vector2(-1, -1)
+var minimap_heading := 0.0
+var minimap_walker := Vector2(-1, -1)
 
 
 func _ready() -> void:
@@ -57,9 +61,19 @@ func _ready() -> void:
 	progress_box.add_child(progress_bar)
 	patches_label = _label("", 14, Color(0.85, 0.85, 0.85))
 	progress_box.add_child(patches_label)
+	# Top-down map of the lawn (the same texture the ground uses).
+	minimap = TextureRect.new()
+	minimap.custom_minimum_size = Vector2(150, 150)
+	minimap.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	minimap.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	minimap.stretch_mode = TextureRect.STRETCH_SCALE
+	minimap.self_modulate = Color(1.7, 1.7, 1.7) # the ground texture is darker than it looks lit
+	minimap.draw.connect(_draw_minimap_markers)
+	minimap.visible = false
+	progress_box.add_child(minimap)
 
 	var controls := _panel(root, Control.PRESET_BOTTOM_LEFT, Vector2(20, -20))
-	controls.add_child(_label("W/S  Drive / walk\nA/D  Steer\nSpace  Hop off or on\nB  Blades on/off\nH  Find missed grass\nP / Esc  Pause\nR  Restart", 14, Color(0.9, 0.9, 0.9)))
+	controls.add_child(_label("W/S  Drive / walk\nA/D  Steer\nSpace  Hop off or on\nB  Blades on/off\nH  Find missed grass\nM  Sound on/off\nP / Esc  Pause\nR  Restart", 14, Color(0.9, 0.9, 0.9)))
 
 	var gauge := _panel(root, Control.PRESET_BOTTOM_RIGHT, Vector2(-20, -20))
 	var gauge_box := VBoxContainer.new()
@@ -120,6 +134,36 @@ func update_play(percent: float, remaining: int, mph_value: float, on_foot: bool
 		blades_label.text = "Blades ON" if blades_on else "Blades OFF"
 		blades_label.add_theme_color_override("font_color", ACCENT if blades_on else Color(0.95, 0.6, 0.4))
 	time_label.text = "Time %s   Best %s" % [format_time(elapsed), format_time(best) if best > 0.0 else "--:--"]
+
+
+## Shows the lawn texture as a map. Positions are fractions (0..1) across it.
+func set_minimap(texture: Texture2D) -> void:
+	minimap.texture = texture
+	minimap.visible = true
+
+
+## `heading` is the mower's facing in radians, 0 meaning up the map.
+func update_minimap(mower_at: Vector2, heading: float, walker_at: Vector2) -> void:
+	minimap_mower = mower_at
+	minimap_heading = heading
+	minimap_walker = walker_at
+	minimap.queue_redraw()
+
+
+func _draw_minimap_markers() -> void:
+	var size := minimap.size
+	minimap.draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, 0.5), false, 1.5)
+	if minimap_mower.x >= 0.0:
+		var at := minimap_mower * size
+		var points := PackedVector2Array([Vector2(0, -7), Vector2(5, 5), Vector2(-5, 5)])
+		for i in points.size():
+			points[i] = at + points[i].rotated(minimap_heading)
+		minimap.draw_colored_polygon(points, Models.ORANGE)
+		minimap.draw_polyline(points + PackedVector2Array([points[0]]), Color.BLACK, 1.0)
+	if minimap_walker.x >= 0.0:
+		var at := minimap_walker * size
+		minimap.draw_circle(at, 4.5, Color.BLACK)
+		minimap.draw_circle(at, 3.0, Color.WHITE)
 
 
 func show_paused(paused: bool) -> void:

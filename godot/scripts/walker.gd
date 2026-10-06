@@ -15,6 +15,8 @@ var active := false
 var measured_speed := 0.0
 var tip_offset := Vector3(0.15, 0.05, -0.85)
 var trimmer_head: Node3D
+var person: Node3D
+var stride := 0.0
 var swath: MeshInstance3D
 var clippings: CPUParticles3D
 var last_tip := Vector3.ZERO
@@ -48,6 +50,9 @@ func _physics_process(delta: float) -> void:
 	var moved := global_position - before
 	measured_speed = Vector2(moved.x, moved.z).length() / delta if delta > 0.0 else 0.0
 	trimmer_head.rotate_y(40.0 * delta)
+	var pace := clampf(measured_speed / walk_speed, 0.0, 1.0)
+	stride = fmod(stride + measured_speed * delta * 4.5, TAU) if pace > 0.05 else 0.0
+	Models.animate_walk(person, stride, pace, true)
 	if lawn:
 		var stripe := LawnGrid.STRIPE_A if absf(forward.x) >= absf(forward.z) else LawnGrid.STRIPE_B
 		var tip := tip_position()
@@ -73,32 +78,42 @@ func set_active(value: bool) -> void:
 	collision_layer = 1 if value else 0
 
 
+## The landscaper holding a straight-shaft weed eater: motor at the back,
+## a rear grip and a raised front handle, and a guarded spinning head.
 func _build_visual() -> void:
-	add_child(Models.person(false))
+	person = Models.person(false)
+	add_child(person)
+	# Hands on the grips: right on the rear grip, left on the front handle.
+	person.get_node("RightArm").rotation = Vector3(deg_to_rad(30), 0, deg_to_rad(-6))
+	person.get_node("LeftArm").rotation = Vector3(deg_to_rad(38), 0, deg_to_rad(-18))
+
 	var metal := Models.material(Color(0.7, 0.7, 0.72), 0.4)
-	var orange := Models.material(Color(0.95, 0.35, 0.05), 0.5)
-	# Shaft from the hands down to the head in front of the feet.
-	var shaft := CylinderMesh.new()
-	shaft.top_radius = 0.02
-	shaft.bottom_radius = 0.02
-	shaft.height = 1.25
-	shaft.material = metal
-	var shaft_instance := Models.add_mesh(self, shaft, Vector3(0.15, 0.6, -0.45))
-	shaft_instance.rotation.x = deg_to_rad(-38)
-	Models.add_box(self, Vector3(0.14, 0.14, 0.2), Vector3(0.15, 1.05, -0.05), orange) # motor
+	var orange := Models.material(Models.ORANGE, 0.5)
+	var dark := Models.material(Models.DARK, 0.7)
+	var top := Vector3(0.15, 1.05, -0.1)
+	var head := Vector3(tip_offset.x, 0.12, tip_offset.z)
+	var along := func(t: float) -> Vector3: return top.lerp(head, t)
+	Models.add_rod(self, top, head, 0.018, metal)
+	Models.add_box(self, Vector3(0.14, 0.16, 0.22), top + Vector3(0, 0.02, 0.1), orange) # motor
+	Models.add_box(self, Vector3(0.1, 0.08, 0.12), top + Vector3(0, -0.08, 0.12), dark) # fuel tank
+	Models.add_cylinder(self, 0.03, 0.14, along.call(0.17), dark, Vector3(48, 0, 0)) # rear grip
+	var post: Vector3 = along.call(0.4)
+	Models.add_rod(self, post, post + Vector3(0, 0.22, 0), 0.015, dark)
+	Models.add_rod(self, post + Vector3(-0.18, 0.22, 0), post + Vector3(0.04, 0.22, 0), 0.022, dark) # front handle
+	Models.add_box(self, Vector3(0.08, 0.06, 0.1), head + Vector3(0, 0.03, 0), dark) # gearbox
+	var guard := CylinderMesh.new()
+	guard.top_radius = 0.17
+	guard.bottom_radius = 0.17
+	guard.height = 0.02
+	guard.radial_segments = 16
+	guard.material = orange
+	Models.add_mesh(self, guard, head + Vector3(0, 0.0, 0.08), Vector3(-15, 0, 0))
+
 	trimmer_head = Node3D.new()
 	trimmer_head.position = tip_offset
 	add_child(trimmer_head)
-	var spool := CylinderMesh.new()
-	spool.top_radius = 0.07
-	spool.bottom_radius = 0.07
-	spool.height = 0.06
-	spool.material = orange
-	Models.add_mesh(trimmer_head, spool, Vector3.ZERO)
-	var line := BoxMesh.new()
-	line.size = Vector3(cut_radius * 2.0, 0.01, 0.015)
-	line.material = Models.material(Color(0.95, 0.9, 0.3), 0.5)
-	Models.add_mesh(trimmer_head, line, Vector3.ZERO)
+	Models.add_cylinder(trimmer_head, 0.06, 0.06, Vector3.ZERO, orange)
+	Models.add_box(trimmer_head, Vector3(cut_radius * 2.0, 0.01, 0.015), Vector3.ZERO, Models.material(Color(0.95, 0.9, 0.3), 0.5))
 	var disc := CylinderMesh.new()
 	disc.top_radius = cut_radius
 	disc.bottom_radius = cut_radius
