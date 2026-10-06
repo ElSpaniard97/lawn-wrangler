@@ -1,4 +1,5 @@
-# Tests the game, builds it for the web with pygbag and publishes it to GitHub Pages
+# Tests the game, builds it for the web (pygbag for /play/, Godot for the
+# /preview-3d/ test yard) and publishes it to GitHub Pages
 # every time you push to the main branch. Pull requests run the tests only.
 # Actions are pinned to full commit SHAs (version in the comment) so a moved tag
 # cannot change what runs here; Dependabot keeps them up to date.
@@ -36,8 +37,27 @@ jobs:
           SDL_AUDIODRIVER: dummy
         run: python -m unittest discover -s tests -v
 
+  test-3d:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-4.7.2-stable-web-${{ hashFiles('.github/scripts/setup-godot.sh') }}
+      - name: Install pinned Godot (checksum verified)
+        run: .github/scripts/setup-godot.sh
+      - name: Run 3D preview tests
+        run: |
+          godot --headless --path godot --import
+          godot --headless --path godot --script res://tests/run_tests.gd
+
   build:
-    needs: test
+    needs: [test, test-3d]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -51,6 +71,20 @@ jobs:
         run: |
           pip install --require-hashes -r requirements.txt
           python -m pygbag --build game
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-4.7.2-stable-web-${{ hashFiles('.github/scripts/setup-godot.sh') }}
+      - name: Install pinned Godot (checksum verified)
+        run: .github/scripts/setup-godot.sh
+      - name: Export 3D preview
+        run: |
+          mkdir -p site/preview-3d
+          godot --headless --path godot --import
+          godot --headless --path godot --export-release Web ../site/preview-3d/index.html
+          test -f site/preview-3d/index.wasm
       - name: Assemble game page
         run: |
           mkdir -p site/play
