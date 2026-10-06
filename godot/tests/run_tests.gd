@@ -5,12 +5,14 @@ extends SceneTree
 ## original pygame regression tests.
 
 const TEST_SAVE := "user://test_best_times.json"
+const TEST_SETTINGS := "user://test_settings.json"
 
 var failures := 0
 
 
 func _initialize() -> void:
 	RunState.default_path = TEST_SAVE
+	Settings.default_path = TEST_SETTINGS
 	_remove_test_save()
 	test_cutting_counts_each_cell_once()
 	test_blocked_cells_never_count()
@@ -27,6 +29,9 @@ func _initialize() -> void:
 	await test_sounds_follow_what_you_are_doing()
 	await test_walk_animation_and_minimap()
 	await test_everything_is_built_in_code()
+	await test_static_models_are_baked()
+	await test_quality_presets_and_saved_settings()
+	await test_touch_controls()
 	_remove_test_save()
 	Models._materials.clear()
 	print("%s: %d failure(s)" % ["FAILED" if failures else "OK", failures])
@@ -62,8 +67,9 @@ func end_yard(yard: Node3D) -> void:
 
 
 func _remove_test_save() -> void:
-	if FileAccess.file_exists(TEST_SAVE):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+	for path in [TEST_SAVE, TEST_SETTINGS]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func test_cutting_counts_each_cell_once() -> void:
@@ -333,12 +339,75 @@ func test_walk_animation_and_minimap() -> void:
 func test_everything_is_built_in_code() -> void:
 	var yard := await new_yard()
 	var loaded := []
-	var meshes := 0
+	var surfaces := 0
 	for node in yard.find_children("*", "MeshInstance3D", true, false):
-		meshes += 1
+		surfaces += node.mesh.get_surface_count()
 		var path: String = node.mesh.resource_path
 		if path != "" and not path.contains("::"):
 			loaded.append(path)
-	check(meshes > 100, "yard is dressed with models (%d meshes)" % meshes)
+	check(surfaces > 50, "yard is dressed with models (%d surfaces)" % surfaces)
 	check(loaded.is_empty(), "no model files are loaded: %s" % [loaded])
+	await end_yard(yard)
+
+
+func test_static_models_are_baked() -> void:
+	var yard := await new_yard()
+	var scenery_meshes: Array = yard.scenery.find_children("*", "MeshInstance3D", true, false)
+	check(scenery_meshes.size() == 1, "scenery is baked into one mesh (%d)" % scenery_meshes.size())
+	check(scenery_meshes[0].mesh.get_surface_count() < 40, "baked scenery has one surface per material")
+	var all: Array = yard.find_children("*", "MeshInstance3D", true, false)
+	check(all.size() < 30, "few mesh instances left to draw (%d)" % all.size())
+	check(yard.mower.wheels[0].get_child_count() == 1, "each wheel is baked but still spins on its own")
+	check(yard.walker.person.get_node("LeftLeg").get_child_count() == 1, "limbs are baked but still swing")
+	await end_yard(yard)
+
+
+func test_quality_presets_and_saved_settings() -> void:
+	var yard := await new_yard()
+	var viewport: Viewport = yard.get_viewport()
+	yard.apply_quality("low")
+	check(not yard.sun.shadow_enabled and is_equal_approx(viewport.scaling_3d_scale, 0.75), "low turns off shadows and renders smaller")
+	yard.apply_quality("medium")
+	check(yard.sun.shadow_enabled and viewport.msaa_3d == Viewport.MSAA_DISABLED, "medium has shadows without smoothing")
+	yard.apply_quality("high")
+	check(viewport.msaa_3d == Viewport.MSAA_2X and is_equal_approx(viewport.scaling_3d_scale, 1.0), "high smooths edges at full size")
+	var press := InputEventAction.new()
+	press.action = "quality"
+	press.pressed = true
+	var before: String = yard.settings.quality
+	yard._unhandled_input(press)
+	check(yard.settings.quality != before, "Q changes the quality")
+	var reloaded := Settings.new()
+	reloaded.load_settings()
+	check(reloaded.quality == yard.settings.quality, "quality is remembered")
+	var cycle := Settings.new()
+	cycle.quality = "high"
+	check(cycle.next_quality() == "low" and cycle.next_quality() == "medium", "Q cycles through every level")
+	for bad in ['{"quality": "ultra", "muted": "yes"}', "not json", "[1, 2]", '{"quality": 3}']:
+		var file := FileAccess.open(TEST_SETTINGS, FileAccess.WRITE)
+		file.store_string(bad)
+		file.close()
+		var settings := Settings.new()
+		settings.load_settings()
+		check(settings.quality == "high" and settings.muted == false, "bad settings fall back to defaults: %s" % bad)
+	yard.apply_quality("high")
+	await end_yard(yard)
+
+
+func test_touch_controls() -> void:
+	var yard := await new_yard()
+	var touch: TouchControls = yard.touch
+	check(not touch.visible and yard.hud.controls.visible, "no touch buttons without a touch screen")
+	var tap := InputEventScreenTouch.new()
+	tap.pressed = true
+	yard._input(tap)
+	check(touch.visible and not yard.hud.controls.visible, "first touch shows the buttons instead of the key list")
+	var screen: Rect2 = yard.get_viewport().get_visible_rect()
+	for spec in TouchControls.BUTTONS:
+		var button: TouchScreenButton = touch.buttons[spec[0]]
+		check(InputMap.has_action(button.action), "%s button presses a real action" % spec[0])
+		var rect := Rect2(button.position, Vector2(spec[2], spec[2]) * 2.0)
+		check(screen.encloses(rect), "%s button is on screen" % spec[0])
+	yard.hud.show_paused(true)
+	check(yard.hud.overlay_body.text.begins_with("Tap"), "pause screen talks about tapping")
 	await end_yard(yard)

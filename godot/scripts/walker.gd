@@ -123,3 +123,13 @@ func _build_visual() -> void:
 	clippings = Models.clippings(cut_radius)
 	clippings.position = Vector3(tip_offset.x, 0.1, tip_offset.z)
 	add_child(clippings)
+
+	# Fewer draw calls: bake the weed eater, the body and each swinging limb.
+	Models.bake(self, [person, trimmer_head, swath])
+	Models.bake(trimmer_head)
+	var limbs := []
+	for limb in ["LeftLeg", "RightLeg", "LeftArm", "RightArm"]:
+		limbs.append(person.get_node(limb))
+	Models.bake(person, limbs)
+	for limb in limbs:
+		Models.bake(limb)
