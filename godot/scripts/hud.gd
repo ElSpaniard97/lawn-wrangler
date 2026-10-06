@@ -12,6 +12,10 @@ var progress_bar: ProgressBar
 var speed_label: Label
 var blades_label: Label
 var time_label: Label
+var patches_label: Label
+var message: PanelContainer
+var message_label: Label
+var message_time := 0.0
 var overlay: PanelContainer
 var overlay_title: Label
 var overlay_body: Label
@@ -51,9 +55,11 @@ func _ready() -> void:
 	progress_bar.add_theme_stylebox_override("fill", fill)
 	progress_bar.add_theme_stylebox_override("background", back)
 	progress_box.add_child(progress_bar)
+	patches_label = _label("", 14, Color(0.85, 0.85, 0.85))
+	progress_box.add_child(patches_label)
 
 	var controls := _panel(root, Control.PRESET_BOTTOM_LEFT, Vector2(20, -20))
-	controls.add_child(_label("W/S  Drive and reverse\nA/D  Steer\nB  Blades on/off\nP / Esc  Pause\nR  Restart", 14, Color(0.9, 0.9, 0.9)))
+	controls.add_child(_label("W/S  Drive / walk\nA/D  Steer\nSpace  Hop off or on\nB  Blades on/off\nH  Find missed grass\nP / Esc  Pause\nR  Restart", 14, Color(0.9, 0.9, 0.9)))
 
 	var gauge := _panel(root, Control.PRESET_BOTTOM_RIGHT, Vector2(-20, -20))
 	var gauge_box := VBoxContainer.new()
@@ -69,6 +75,11 @@ func _ready() -> void:
 	blades_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	gauge_box.add_child(blades_label)
 
+	message = _panel(root, Control.PRESET_CENTER_BOTTOM, Vector2(0, -24))
+	message_label = _label("", 16, Color.WHITE)
+	message.add_child(message_label)
+	message.visible = false
+
 	overlay = _panel(root, Control.PRESET_CENTER, Vector2.ZERO)
 	var overlay_box := VBoxContainer.new()
 	overlay_box.custom_minimum_size = Vector2(360, 0)
@@ -82,14 +93,32 @@ func _ready() -> void:
 	overlay.visible = false
 
 
-func update_play(percent: float, mph_value: float, blades_on: bool, elapsed: float, best: float) -> void:
+func _process(delta: float) -> void:
+	if message_time > 0.0:
+		message_time -= delta
+		message.visible = message_time > 0.0
+
+
+## Shows a short hint above the bottom edge for a few seconds.
+func say(text: String, seconds := 2.5) -> void:
+	message_label.text = text
+	message_time = seconds
+	message.visible = true
+
+
+func update_play(percent: float, remaining: int, mph_value: float, on_foot: bool, blades_on: bool, elapsed: float, best: float) -> void:
 	var shown := floorf(percent)
 	progress_label.text = "Progress %d%%" % shown
 	progress_bar.value = shown
+	patches_label.text = "%d patches left" % remaining
 	objective.text = ("[x]" if percent >= 99.0 else "[  ]") + " Cut 99% of the grass"
 	speed_label.text = "%d" % roundi(mph_value)
-	blades_label.text = "Blades ON" if blades_on else "Blades OFF"
-	blades_label.add_theme_color_override("font_color", ACCENT if blades_on else Color(0.95, 0.6, 0.4))
+	if on_foot:
+		blades_label.text = "Weed eater"
+		blades_label.add_theme_color_override("font_color", ACCENT)
+	else:
+		blades_label.text = "Blades ON" if blades_on else "Blades OFF"
+		blades_label.add_theme_color_override("font_color", ACCENT if blades_on else Color(0.95, 0.6, 0.4))
 	time_label.text = "Time %s   Best %s" % [format_time(elapsed), format_time(best) if best > 0.0 else "--:--"]
 
 
@@ -132,6 +161,9 @@ func _panel(root: Control, preset: int, offset: Vector2) -> PanelContainer:
 			panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		Control.PRESET_BOTTOM_RIGHT:
 			panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+			panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		Control.PRESET_CENTER_BOTTOM:
+			panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 			panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		Control.PRESET_CENTER:
 			panel.grow_horizontal = Control.GROW_DIRECTION_BOTH

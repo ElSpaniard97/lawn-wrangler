@@ -1,12 +1,9 @@
-# Opens pull requests when GitHub Actions or Python packages have updates,
-# including security fixes. The tests run on each one before you merge.
+# Opens pull requests when the GitHub Actions used by the workflow have
+# updates, including security fixes. The tests run on each one before you
+# merge. Godot is pinned in .github/scripts/setup-godot.sh and updated by hand.
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-  - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly

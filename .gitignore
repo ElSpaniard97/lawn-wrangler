@@ -1,5 +1,2 @@
-__pycache__/
-*.pyc
-game/build/
-.venv/
+# Built site (CI assembles it); Godot's import cache lives in godot/.godot/
 site/

@@ -12,11 +12,14 @@ var elapsed := 0.0
 var finished := false
 var best := 0.0
 var storage_ok := true
+## Tests point this somewhere else so they never touch a real record.
+static var default_path := SAVE_PATH
+var save_path := default_path
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	best = load_best()
+	best = load_best(save_path)
 
 
 func _process(delta: float) -> void:
@@ -41,7 +44,7 @@ func finish_run() -> void:
 	var is_record := best <= 0.0 or elapsed < best
 	if is_record:
 		best = elapsed
-		storage_ok = save_best(best)
+		storage_ok = save_best(best, save_path)
 	finished_run.emit(elapsed, is_record)
 
 

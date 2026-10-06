@@ -9,6 +9,7 @@ const TALL_COLOR := Color(0.17, 0.30, 0.09)
 const STRIPE_A_COLOR := Color(0.30, 0.47, 0.15)
 const STRIPE_B_COLOR := Color(0.22, 0.38, 0.11)
 const BLOCKED_COLOR := Color(0.33, 0.24, 0.16)
+const HIGHLIGHT_COLOR := Color(0.95, 0.78, 0.15)
 
 var grid: LawnGrid
 var image: Image
@@ -17,6 +18,8 @@ var shade := PackedFloat32Array()
 var chunks: Array[MultiMesh] = []
 var chunk_columns := 0
 var dirty := false
+var highlight := false
+var clump_material: StandardMaterial3D
 
 
 func build(lawn: LawnGrid) -> void:
@@ -100,15 +103,15 @@ func _clump_mesh() -> ArrayMesh:
 				st.set_normal(Vector3.UP)
 				st.set_color(tip if i == 2 else root)
 				st.add_vertex(points[i])
-	var material := StandardMaterial3D.new()
-	material.vertex_color_use_as_albedo = true
-	material.roughness = 1.0
-	st.set_material(material)
+	clump_material = StandardMaterial3D.new()
+	clump_material.vertex_color_use_as_albedo = true
+	clump_material.roughness = 1.0
+	st.set_material(clump_material)
 	return st.commit()
 
 
 func _color_for(x: int, z: int) -> Color:
-	var base := TALL_COLOR
+	var base := HIGHLIGHT_COLOR if highlight else TALL_COLOR
 	match grid.cell(x, z):
 		LawnGrid.STRIPE_A:
 			base = STRIPE_A_COLOR
@@ -124,6 +127,16 @@ func _on_cell_cut(x: int, z: int, _stripe: int) -> void:
 	image.set_pixel(x, z, _color_for(x, z))
 	var chunk := chunks[(z / CHUNK) * chunk_columns + (x / CHUNK)]
 	chunk.set_instance_transform((z % CHUNK) * CHUNK + (x % CHUNK), Transform3D().scaled(Vector3.ZERO))
+	dirty = true
+
+
+## Paints every uncut patch bright yellow so the last few are easy to find.
+func set_highlight(on: bool) -> void:
+	highlight = on
+	clump_material.albedo_color = Color(3.0, 2.4, 0.4) if on else Color.WHITE
+	for z in grid.rows:
+		for x in grid.columns:
+			image.set_pixel(x, z, _color_for(x, z))
 	dirty = true
 
 
