@@ -11,7 +11,13 @@ GDScript, and played in the browser.
 
 ## Features
 
-- Riding mower with a chase camera, plus walking with a weed eater.
+- A zero-turn style riding mower with a chase camera, and a landscaper who
+  walks with a weed eater.
+- A dressed yard: houses next door, a picket fence with posts and rails,
+  shade trees and pines, and flower beds edged with stones.
+- Engine, blade, weed eater and grass rustle sounds, and a chime when you
+  finish. M turns the sound off and on.
+- A minimap of the lawn showing what is cut and where you are.
 - The mower's blade is narrower than its body, so the strip along the fence
   and the edges of beds and tree rings need the weed eater.
 - Two stripe shades depending on which way you mow; cut grass leaves short
@@ -30,6 +36,7 @@ GDScript, and played in the browser.
 | Space | Hop off the mower, or back on when you are next to it |
 | B | Mower blades on or off |
 | H | Highlight grass you missed |
+| M | Sound off or on |
 | P / Esc | Pause or resume |
 | R | Restart the yard |
 
@@ -74,9 +81,13 @@ version and both sums there, and the version noted in `godot/project.godot`.
   cutting.
 - `godot/scripts/chase_camera.gd`: camera that follows whoever you control.
 - `godot/scripts/run_state.gd`: timer, pause and the saved best time.
-- `godot/scripts/hud.gd`: on-screen panels and messages.
-- `godot/scripts/models.gd`: placeholder meshes, replaced with real models
-  in a later phase.
+- `godot/scripts/hud.gd`: on-screen panels, messages and the minimap.
+- `godot/scripts/models.gd`: the landscaper, the walk cycle and the shared
+  shape helpers the mower and scenery are built from.
+- `godot/scripts/sounds.gd`: synthesizes every sound when the yard loads.
+
+All models and sounds are generated in code; the game loads no model, texture
+or audio files.
 - `godot/tests/run_tests.gd`: headless tests, run in CI before every deploy.
 - `web/index.html`: the landing page that frames the game.
 
@@ -90,8 +101,8 @@ The full plan is in the project's improvement plan document.
 | 0. 3D export spike | Done |
 | 1. Graybox gameplay: weed eater, hop off/on, tests ported | Done |
 | 2. Grass polish: stubble, sway, clippings, gap-free cutting | Done |
-| 3. Visual slice: real models, sound, landscaping | Next |
-| 4. Optimize and QA, quality presets | Planned |
+| 3. Visual slice: models, sound, landscaping, minimap (all built in code) | Done |
+| 4. Optimize and QA, quality presets | Next |
 | 5. Release | Planned |
 
 The original Python/pygame version was replaced by the Godot version. It is

@@ -1,59 +1,178 @@
 class_name Models
-## Placeholder meshes built in code, shared by the mower and the walker.
-## These get replaced by real models in Phase 3.
+## Models built in code from Godot's primitive meshes: the landscaper, the
+## weed eater and clippings, plus small helpers the mower and scenery use.
+## No outside model or texture files are loaded.
+
+const SHIRT := Color(0.24, 0.27, 0.31)
+const PANTS := Color(0.26, 0.30, 0.38)
+const SKIN := Color(0.80, 0.60, 0.46)
+const DARK := Color(0.10, 0.10, 0.11)
+const SAFETY := Color(0.86, 0.20, 0.12)
+const ORANGE := Color(0.95, 0.35, 0.05)
+
+static var _materials := {}
 
 
+## Shared, cached materials so identical colours reuse one material.
 static func material(color: Color, roughness := 0.8, transparent := false) -> StandardMaterial3D:
+	var key := "%s|%s|%s" % [color.to_html(), roughness, transparent]
+	if _materials.has(key):
+		return _materials[key]
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
 	m.roughness = roughness
 	if transparent:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_materials[key] = m
 	return m
 
 
-static func add_mesh(parent: Node3D, mesh: Mesh, at: Vector3) -> MeshInstance3D:
+static func add_mesh(parent: Node3D, mesh: Mesh, at: Vector3, rotation_degrees := Vector3.ZERO) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.position = at
+	instance.rotation_degrees = rotation_degrees
 	parent.add_child(instance)
 	return instance
 
 
-static func add_box(parent: Node3D, size: Vector3, at: Vector3, mat: Material) -> MeshInstance3D:
+static func add_box(parent: Node3D, size: Vector3, at: Vector3, mat: Material, rotation_degrees := Vector3.ZERO) -> MeshInstance3D:
 	var box := BoxMesh.new()
 	box.size = size
 	box.material = mat
-	return add_mesh(parent, box, at)
+	return add_mesh(parent, box, at, rotation_degrees)
 
 
-## The landscaper: shirt, head, cap and ear protection. Feet at the origin
-## when standing; seated lowers the legs out of the way.
+static func add_cylinder(parent: Node3D, radius: float, height: float, at: Vector3, mat: Material, rotation_degrees := Vector3.ZERO, sides := 16) -> MeshInstance3D:
+	var c := CylinderMesh.new()
+	c.top_radius = radius
+	c.bottom_radius = radius
+	c.height = height
+	c.radial_segments = sides
+	c.rings = 1
+	c.material = mat
+	return add_mesh(parent, c, at, rotation_degrees)
+
+
+## A round rod running from one point to another (rails, bars, shafts).
+static func add_rod(parent: Node3D, from: Vector3, to: Vector3, radius: float, mat: Material, sides := 8) -> MeshInstance3D:
+	var rod := add_cylinder(parent, radius, from.distance_to(to), (from + to) * 0.5, mat, Vector3.ZERO, sides)
+	var y := (to - from).normalized()
+	var helper := Vector3.FORWARD if absf(y.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT
+	var x := y.cross(helper).normalized()
+	rod.basis = Basis(x, y, x.cross(y))
+	return rod
+
+
+## A material that glows, for headlights and windows.
+static func glow(color: Color, energy := 1.0) -> StandardMaterial3D:
+	var key := "glow|%s|%s" % [color.to_html(), energy]
+	if _materials.has(key):
+		return _materials[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.emission_enabled = true
+	m.emission = color
+	m.emission_energy_multiplier = energy
+	_materials[key] = m
+	return m
+
+
+static func add_sphere(parent: Node3D, radius: float, at: Vector3, mat: Material, squash := 1.0) -> MeshInstance3D:
+	var s := SphereMesh.new()
+	s.radius = radius
+	s.height = radius * 2.0 * squash
+	s.radial_segments = 16
+	s.rings = 8
+	s.material = mat
+	return add_mesh(parent, s, at)
+
+
+static func add_capsule(parent: Node3D, radius: float, height: float, at: Vector3, mat: Material, rotation_degrees := Vector3.ZERO) -> MeshInstance3D:
+	var c := CapsuleMesh.new()
+	c.radius = radius
+	c.height = height
+	c.radial_segments = 12
+	c.rings = 4
+	c.material = mat
+	return add_mesh(parent, c, at, rotation_degrees)
+
+
+## The landscaper, facing -Z with feet at the origin: boots, work pants,
+## t-shirt, arms, cap and red ear protection. Legs and arms hang from pivot
+## nodes named LeftLeg, RightLeg, LeftArm and RightArm so they can swing.
+## Seated bends the legs forward and reaches the arms to the lap bars.
 static func person(seated: bool) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Person"
-	var shirt := material(Color(0.25, 0.27, 0.30), 0.9)
-	var pants := material(Color(0.20, 0.22, 0.28), 0.9)
-	var skin := material(Color(0.78, 0.58, 0.44), 0.8)
-	var dark := material(Color(0.12, 0.12, 0.13), 0.8)
-	var hip := 0.0 if seated else 0.8
-	if not seated:
-		add_box(root, Vector3(0.14, 0.8, 0.16), Vector3(-0.11, 0.4, 0), pants)
-		add_box(root, Vector3(0.14, 0.8, 0.16), Vector3(0.11, 0.4, 0), pants)
-	var torso := CapsuleMesh.new()
-	torso.radius = 0.2
-	torso.height = 0.7
-	torso.material = shirt
-	add_mesh(root, torso, Vector3(0, hip + 0.35, 0))
-	var head := SphereMesh.new()
-	head.radius = 0.13
-	head.height = 0.26
-	head.material = skin
-	add_mesh(root, head, Vector3(0, hip + 0.82, 0))
-	add_box(root, Vector3(0.28, 0.08, 0.3), Vector3(0, hip + 0.92, -0.02), dark) # cap
-	add_box(root, Vector3(0.32, 0.1, 0.08), Vector3(0, hip + 0.82, 0), material(Color(0.6, 0.15, 0.1), 0.6)) # ear protection
+	var shirt := material(SHIRT, 0.9)
+	var pants := material(PANTS, 0.9)
+	var skin := material(SKIN, 0.75)
+	var dark := material(DARK, 0.7)
+	var safety := material(SAFETY, 0.5)
+	var hip := 0.85
+
+	for side in [-1, 1]:
+		var leg := Node3D.new()
+		leg.name = "LeftLeg" if side < 0 else "RightLeg"
+		leg.position = Vector3(0.1 * side, hip, 0)
+		root.add_child(leg)
+		add_box(leg, Vector3(0.15, 0.78, 0.17), Vector3(0, -0.4, 0), pants)
+		add_box(leg, Vector3(0.15, 0.1, 0.27), Vector3(0, -0.8, -0.05), dark) # boot
+		if seated:
+			leg.rotation.x = deg_to_rad(62)
+
+	add_box(root, Vector3(0.36, 0.08, 0.22), Vector3(0, hip + 0.02, 0), dark) # belt
+	add_capsule(root, 0.2, 0.66, Vector3(0, hip + 0.33, 0), shirt)
+	add_cylinder(root, 0.055, 0.1, Vector3(0, hip + 0.7, 0), skin) # neck
+
+	for side in [-1, 1]:
+		var arm := Node3D.new()
+		arm.name = "LeftArm" if side < 0 else "RightArm"
+		arm.position = Vector3(0.25 * side, hip + 0.56, 0)
+		root.add_child(arm)
+		add_capsule(arm, 0.08, 0.26, Vector3(0, -0.1, 0), shirt) # sleeve
+		add_capsule(arm, 0.055, 0.58, Vector3(0, -0.3, 0), skin)
+		add_sphere(arm, 0.06, Vector3(0, -0.6, 0), skin) # hand
+		arm.rotation.z = deg_to_rad(4 * side)
+		if seated:
+			arm.rotation.x = deg_to_rad(55)
+
+	var head_y := hip + 0.86
+	add_sphere(root, 0.125, Vector3(0, head_y, 0), skin, 1.08)
+	# Cap: crown and brim.
+	var crown := SphereMesh.new()
+	crown.radius = 0.132
+	crown.height = 0.132
+	crown.is_hemisphere = true
+	crown.material = dark
+	add_mesh(root, crown, Vector3(0, head_y + 0.03, 0))
+	add_box(root, Vector3(0.2, 0.02, 0.13), Vector3(0, head_y + 0.035, -0.17), dark)
+	# Ear protection: two cups and a band over the cap.
+	for side in [-1, 1]:
+		add_cylinder(root, 0.065, 0.06, Vector3(0.14 * side, head_y, 0.01), safety, Vector3(0, 0, 90))
+	var band := TorusMesh.new()
+	band.inner_radius = 0.135
+	band.outer_radius = 0.155
+	band.rings = 16
+	band.ring_segments = 6
+	band.material = safety
+	add_mesh(root, band, Vector3(0, head_y + 0.02, 0.01), Vector3(0, 0, 90))
+
+	if seated:
+		root.position.y = -hip
 	return root
+
+
+## Swings legs (and arms unless they are holding a tool) for a walk cycle.
+static func animate_walk(person: Node3D, phase: float, amount: float, arms_busy: bool) -> void:
+	var swing := sin(phase) * 0.55 * amount
+	person.get_node("LeftLeg").rotation.x = swing
+	person.get_node("RightLeg").rotation.x = -swing
+	if not arms_busy:
+		person.get_node("LeftArm").rotation.x = -swing * 0.8
+		person.get_node("RightArm").rotation.x = swing * 0.8
 
 
 ## Bits of grass thrown up while cutting. Set `emitting` while cells are cut.
@@ -76,7 +195,9 @@ static func clippings(radius: float) -> CPUParticles3D:
 	p.scale_amount_max = 1.2
 	var bit := QuadMesh.new()
 	bit.size = Vector2(0.05, 0.02)
-	var mat := material(Color(0.32, 0.50, 0.16), 1.0)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.32, 0.50, 0.16)
+	mat.roughness = 1.0
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	bit.material = mat

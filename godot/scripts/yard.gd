@@ -22,6 +22,7 @@ var walker: Walker
 var camera: ChaseCamera
 var run: RunState
 var hud: Hud
+var sounds: Sounds
 var floor_body: StaticBody3D
 var on_mower := true
 var auto_highlighted := false
@@ -76,6 +77,11 @@ func _ready() -> void:
 	add_child(run)
 	hud = Hud.new()
 	add_child(hud)
+	hud.set_minimap(view.texture)
+	sounds = Sounds.new()
+	sounds.name = "Sounds"
+	sounds.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(sounds)
 	run.finished_run.connect(_on_finished)
 	hud.say("Mow the open lawn, then press Space to hop off and trim the edges.", 5.0)
 
@@ -92,12 +98,25 @@ func _process(_delta: float) -> void:
 	var speed := mower.measured_speed if on_mower else walker.measured_speed
 	hud.update_play(percent, lawn.total - lawn.cut_count, speed * MPS_TO_MPH, not on_mower,
 		mower.blades_on, run.elapsed, run.best)
+	var heading := -mower.global_rotation.y
+	hud.update_minimap(map_point(mower.global_position), heading,
+		Vector2(-1, -1) if on_mower else map_point(walker.global_position))
+	var top_speed := mower.max_speed if on_mower else walker.walk_speed
+	var cutting := mower.clippings.emitting or walker.clippings.emitting
+	sounds.update(on_mower, clampf(speed / top_speed, 0.0, 1.0), mower.blades_on, cutting, not run.finished)
+
+
+## Where a spot in the yard falls on the minimap, as fractions across it.
+func map_point(at: Vector3) -> Vector2:
+	return Vector2(clampf(at.x / YARD_SIZE, 0.0, 1.0), clampf(at.z / YARD_SIZE, 0.0, 1.0))
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_echo():
 		return
-	if event.is_action_pressed("pause"):
+	if event.is_action_pressed("mute"):
+		hud.say("Sound off" if Sounds.toggle_mute() else "Sound on", 1.5)
+	elif event.is_action_pressed("pause"):
 		run.toggle_pause()
 		hud.show_paused(get_tree().paused)
 	elif event.is_action_pressed("restart"):
@@ -163,6 +182,7 @@ func _on_finished(time: float, is_record: bool) -> void:
 	mower.set_physics_process(false)
 	walker.set_physics_process(false)
 	hud.show_finished(time, run.best, is_record, run.storage_ok)
+	sounds.chime()
 
 
 func _setup_input() -> void:
@@ -174,6 +194,7 @@ func _setup_input() -> void:
 		"toggle_blades": [KEY_B],
 		"hop": [KEY_SPACE],
 		"highlight": [KEY_H],
+		"mute": [KEY_M],
 		"pause": [KEY_P, KEY_ESCAPE],
 		"restart": [KEY_R],
 	}
@@ -229,6 +250,7 @@ func _build_environment() -> void:
 
 func _build_fence() -> void:
 	var wood := _material(Color(0.55, 0.38, 0.24), 0.9)
+	var post_wood := _material(Color(0.45, 0.31, 0.2), 0.9)
 	var height := 1.2
 	var walls := [
 		[Vector3(YARD_SIZE / 2.0, 0, -0.1), Vector3(YARD_SIZE + 0.4, height, 0.2)],
@@ -265,28 +287,46 @@ func _build_fence() -> void:
 		var pickets := MultiMeshInstance3D.new()
 		pickets.multimesh = mm
 		body.add_child(pickets)
+		# Posts every few metres and two rails on the outside of the pickets.
+		var outward := (at - Vector3(YARD_SIZE / 2.0, 0, YARD_SIZE / 2.0)).normalized() * 0.07
+		var axis := Vector3(1, 0, 0) if along_x else Vector3(0, 0, 1)
+		var posts := int(length / 2.5)
+		for i in posts + 1:
+			var post_at := axis * (-length / 2.0 + i * length / posts) + outward
+			Models.add_box(body, Vector3(0.1, height + 0.15, 0.1), post_at + Vector3(0, 0.07, 0), post_wood)
+			Models.add_box(body, Vector3(0.14, 0.04, 0.14), post_at + Vector3(0, height / 2.0 + 0.16, 0), post_wood)
+		for rail_y in [-0.3, 0.38]:
+			var rail_size := Vector3(length, 0.08, 0.04) if along_x else Vector3(0.04, 0.08, length)
+			Models.add_box(body, rail_size, outward * 0.6 + Vector3(0, rail_y, 0), post_wood)
 
 
-func _build_tree(at: Vector3, scale_factor: float, collide: bool) -> void:
-	var trunk_mesh := CylinderMesh.new()
-	trunk_mesh.top_radius = 0.18 * scale_factor
-	trunk_mesh.bottom_radius = 0.25 * scale_factor
-	trunk_mesh.height = 2.4 * scale_factor
-	trunk_mesh.material = _material(Color(0.36, 0.25, 0.17), 1.0)
-	var trunk := MeshInstance3D.new()
-	trunk.mesh = trunk_mesh
-	trunk.position = at + Vector3(0, trunk_mesh.height / 2.0, 0)
-	add_child(trunk)
-	var leaves := _material(Color(0.20, 0.42, 0.16), 1.0)
-	for blob in [[Vector3(0, 3.0, 0), 1.5], [Vector3(0.8, 2.6, 0.3), 1.0], [Vector3(-0.7, 2.7, -0.4), 1.1], [Vector3(0.1, 3.7, 0.2), 1.0]]:
-		var sphere := SphereMesh.new()
-		sphere.radius = blob[1] * scale_factor
-		sphere.height = blob[1] * 2.0 * scale_factor
-		sphere.material = leaves
-		var canopy := MeshInstance3D.new()
-		canopy.mesh = sphere
-		canopy.position = at + blob[0] * scale_factor
-		add_child(canopy)
+## A round leafy tree, or a pine when `pine` is set. Trees inside the yard
+## get a stone ring with mulch and a collider.
+func _build_tree(at: Vector3, scale_factor: float, collide: bool, pine := false) -> void:
+	var bark := _material(Color(0.36, 0.25, 0.17), 1.0)
+	if pine:
+		Models.add_cylinder(self, 0.18 * scale_factor, 1.4 * scale_factor, at + Vector3(0, 0.7, 0) * scale_factor, bark)
+		var needles := _material(Color(0.12, 0.30, 0.15), 1.0)
+		for layer in 4:
+			var cone := CylinderMesh.new()
+			cone.top_radius = 0.0
+			cone.bottom_radius = (1.6 - layer * 0.32) * scale_factor
+			cone.height = 1.6 * scale_factor
+			cone.radial_segments = 12
+			cone.rings = 1
+			cone.material = needles
+			Models.add_mesh(self, cone, at + Vector3(0, 1.6 + layer * 0.85, 0) * scale_factor)
+	else:
+		var trunk_mesh := CylinderMesh.new()
+		trunk_mesh.top_radius = 0.18 * scale_factor
+		trunk_mesh.bottom_radius = 0.25 * scale_factor
+		trunk_mesh.height = 2.4 * scale_factor
+		trunk_mesh.material = bark
+		Models.add_mesh(self, trunk_mesh, at + Vector3(0, trunk_mesh.height / 2.0, 0))
+		var shade := 0.04 * sin(at.x * 1.7 + at.z)
+		var leaves := _material(Color(0.20 + shade, 0.42 + shade, 0.16), 1.0)
+		for blob in [[Vector3(0, 3.0, 0), 1.5], [Vector3(0.8, 2.6, 0.3), 1.0], [Vector3(-0.7, 2.7, -0.4), 1.1], [Vector3(0.1, 3.7, 0.2), 1.0]]:
+			Models.add_sphere(self, blob[1] * scale_factor, at + blob[0] * scale_factor, leaves)
 	if collide:
 		var ring := CylinderMesh.new()
 		ring.top_radius = RING_RADIUS
@@ -329,18 +369,41 @@ func _build_bed(at: Vector3, radius: float) -> void:
 	add_child(bed)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(at.x * 31.0 + at.z)
-	var colors := [Color(0.85, 0.35, 0.55), Color(0.95, 0.8, 0.3), Color(0.9, 0.9, 0.95)]
-	for i in 9:
-		var angle := i * TAU / 9.0 + rng.randf() * 0.3
-		var r := rng.randf_range(0.2, radius - 0.25)
-		var shrub := SphereMesh.new()
-		shrub.radius = rng.randf_range(0.18, 0.28)
-		shrub.height = shrub.radius * 1.6
-		shrub.material = _material(Color(0.18, 0.38, 0.14), 1.0) if i % 3 else _material(colors[i % 3 + (i / 3) % 2], 0.9)
-		var instance := MeshInstance3D.new()
-		instance.mesh = shrub
-		instance.position = at + Vector3(cos(angle) * r, 0.2, sin(angle) * r)
-		add_child(instance)
+	# Edging stones around the rim.
+	var stone := SphereMesh.new()
+	stone.radius = 0.11
+	stone.height = 0.12
+	stone.radial_segments = 8
+	stone.rings = 4
+	stone.material = _material(Color(0.5, 0.48, 0.45), 0.9)
+	var stones := MultiMesh.new()
+	stones.transform_format = MultiMesh.TRANSFORM_3D
+	stones.mesh = stone
+	stones.instance_count = int(TAU * radius / 0.2)
+	for i in stones.instance_count:
+		var angle := i * TAU / stones.instance_count
+		var size := rng.randf_range(0.85, 1.15)
+		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(size, size, size))
+		stones.set_instance_transform(i, Transform3D(basis, Vector3(cos(angle), 0, sin(angle)) * (radius - 0.04) + Vector3(0, 0.12, 0)))
+	var stone_instance := MultiMeshInstance3D.new()
+	stone_instance.multimesh = stones
+	stone_instance.position = at
+	add_child(stone_instance)
+	# Shrubs in the middle, flowers on stems around them.
+	var leaf := _material(Color(0.18, 0.38, 0.14), 1.0)
+	var stem := _material(Color(0.2, 0.45, 0.15), 1.0)
+	var colors := [Color(0.85, 0.3, 0.5), Color(0.95, 0.8, 0.25), Color(0.92, 0.92, 0.96), Color(0.6, 0.35, 0.85)]
+	for i in 3:
+		var angle := i * TAU / 3.0 + rng.randf()
+		Models.add_sphere(self, rng.randf_range(0.25, 0.32), at + Vector3(cos(angle), 0, sin(angle)) * radius * 0.3 + Vector3(0, 0.28, 0), leaf, 0.8)
+	var flowers := int(radius * 14.0)
+	for i in flowers:
+		var angle := i * TAU / flowers + rng.randf() * 0.2
+		var r := rng.randf_range(radius * 0.55, radius - 0.18)
+		var base := at + Vector3(cos(angle) * r, 0.16, sin(angle) * r)
+		var tall := rng.randf_range(0.18, 0.32)
+		Models.add_rod(self, base, base + Vector3(0, tall, 0), 0.01, stem, 4)
+		Models.add_sphere(self, 0.06, base + Vector3(0, tall + 0.02, 0), _material(colors[i % colors.size()], 0.8), 0.6)
 	var body := StaticBody3D.new()
 	var shape := CylinderShape3D.new()
 	shape.radius = radius
@@ -353,29 +416,54 @@ func _build_bed(at: Vector3, radius: float) -> void:
 
 
 func _build_scenery() -> void:
-	# A simple house beyond the far fence and a few trees around the yard.
-	var wall := _material(Color(0.78, 0.76, 0.72), 0.9)
-	var roof := _material(Color(0.32, 0.30, 0.30), 0.8)
-	var house := BoxMesh.new()
-	house.size = Vector3(12, 5, 7)
-	house.material = wall
-	var house_instance := MeshInstance3D.new()
-	house_instance.mesh = house
-	house_instance.position = Vector3(8, 2.5, -6)
-	add_child(house_instance)
-	var roof_mesh := PrismMesh.new()
-	roof_mesh.size = Vector3(13, 2.5, 8)
-	roof_mesh.material = roof
-	var roof_instance := MeshInstance3D.new()
-	roof_instance.mesh = roof_mesh
-	roof_instance.position = Vector3(8, 6.25, -6)
-	add_child(roof_instance)
-	for spot in [Vector3(-4, 0, 4), Vector3(-5, 0, 15), Vector3(25, 0, 3), Vector3(24, 0, 16), Vector3(18, 0, 26), Vector3(3, 0, 26)]:
-		_build_tree(spot, 1.3, false)
+	# The house behind the far fence, neighbours on either side, and trees.
+	_build_house(Vector3(8, 0, -6), Vector3(12, 4.6, 7), 0.0, Color(0.80, 0.77, 0.70), Color(0.30, 0.28, 0.28), true)
+	_build_house(Vector3(-11, 0, 9), Vector3(9, 4.0, 7), 90.0, Color(0.62, 0.70, 0.76), Color(0.36, 0.22, 0.18), false)
+	_build_house(Vector3(31, 0, 11), Vector3(9, 4.2, 7), -90.0, Color(0.82, 0.74, 0.58), Color(0.25, 0.27, 0.32), false)
+	var spots := [Vector3(-4, 0, 1), Vector3(-5, 0, 18), Vector3(24.5, 0, 2), Vector3(24, 0, 19), Vector3(18, 0, 26), Vector3(3, 0, 26), Vector3(10, 0, 30)]
+	for i in spots.size():
+		_build_tree(spots[i], 1.3 if i % 2 else 1.1, false, i % 2 == 0)
+
+
+## A house facing local +Z: walls, roof with overhang, chimney, windows,
+## a door with a step, and a garage door on the main house.
+func _build_house(at: Vector3, size: Vector3, turn: float, wall_color: Color, roof_color: Color, garage: bool) -> void:
+	var house := Node3D.new()
+	house.position = at
+	house.rotation_degrees.y = turn
+	add_child(house)
+	var wall := _material(wall_color, 0.9)
+	var trim := _material(Color(0.95, 0.95, 0.93), 0.7)
+	var glass := Models.glow(Color(0.45, 0.6, 0.72), 0.25)
+	var front := size.z / 2.0
+	Models.add_box(house, size, Vector3(0, size.y / 2.0, 0), wall)
+	Models.add_box(house, Vector3(size.x + 0.1, 0.3, size.z + 0.1), Vector3(0, 0.15, 0), _material(Color(0.45, 0.44, 0.42), 0.9)) # foundation
+	var roof := PrismMesh.new()
+	roof.size = Vector3(size.x + 1.0, size.y * 0.5, size.z + 1.2)
+	roof.material = _material(roof_color, 0.8)
+	Models.add_mesh(house, roof, Vector3(0, size.y + size.y * 0.25, 0))
+	Models.add_box(house, Vector3(0.8, 2.0, 0.8), Vector3(size.x * 0.3, size.y + 1.4, -size.z * 0.15), _material(Color(0.55, 0.3, 0.25), 0.9)) # chimney
+	Models.add_box(house, Vector3(size.x + 0.2, 0.15, size.z + 0.2), Vector3(0, size.y, 0), trim) # eave trim
+	# Door near one end, garage at the other, windows between.
+	var door_x := -size.x * 0.3 if garage else 0.0
+	Models.add_box(house, Vector3(1.1, 2.2, 0.08), Vector3(door_x, 1.1 + 0.3, front + 0.02), _material(Color(0.35, 0.18, 0.12), 0.7))
+	Models.add_box(house, Vector3(1.6, 0.2, 0.8), Vector3(door_x, 0.1, front + 0.4), _material(Color(0.55, 0.54, 0.52), 0.9)) # step
+	var windows: Array = [-size.x * 0.32, size.x * 0.32] if not garage else [-size.x * 0.08, size.x * 0.12]
+	if garage:
+		Models.add_box(house, Vector3(3.2, 2.5, 0.08), Vector3(size.x * 0.33, 1.25 + 0.3, front + 0.02), trim)
+		for row in 4:
+			Models.add_box(house, Vector3(3.0, 0.03, 0.1), Vector3(size.x * 0.33, 0.9 + row * 0.6, front + 0.04), _material(Color(0.8, 0.8, 0.78), 0.7))
+	for x in windows:
+		Models.add_box(house, Vector3(1.4, 1.3, 0.08), Vector3(x, 2.1, front + 0.02), trim)
+		Models.add_box(house, Vector3(1.2, 1.1, 0.1), Vector3(x, 2.1, front + 0.03), glass)
+		Models.add_box(house, Vector3(0.05, 1.1, 0.12), Vector3(x, 2.1, front + 0.04), trim)
+		Models.add_box(house, Vector3(1.2, 0.05, 0.12), Vector3(x, 2.1, front + 0.04), trim)
+	# Back and side windows so the neighbours look lived in from any angle.
+	for x in [-size.x * 0.25, size.x * 0.25]:
+		Models.add_box(house, Vector3(1.2, 1.1, 0.1), Vector3(x, 2.1, -front - 0.03), glass)
+	for side in [-1, 1]:
+		Models.add_box(house, Vector3(0.1, 1.1, 1.2), Vector3(side * (size.x / 2.0 + 0.03), 2.1, 0), glass)
 
 
 func _material(color: Color, roughness: float) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = roughness
-	return m
+	return Models.material(color, roughness)
