@@ -32,6 +32,10 @@ func _initialize() -> void:
 	await test_static_models_are_baked()
 	await test_quality_presets_and_saved_settings()
 	await test_touch_controls()
+	await test_lost_focus_pauses_with_pause_screen()
+	await test_restart_starts_a_fresh_yard()
+	await test_blocked_storage_still_finishes()
+	await test_resize_keeps_touch_buttons_on_screen()
 	_remove_test_save()
 	Models._materials.clear()
 	print("%s: %d failure(s)" % ["FAILED" if failures else "OK", failures])
@@ -410,4 +414,61 @@ func test_touch_controls() -> void:
 		check(screen.encloses(rect), "%s button is on screen" % spec[0])
 	yard.hud.show_paused(true)
 	check(yard.hud.overlay_body.text.begins_with("Tap"), "pause screen talks about tapping")
+	await end_yard(yard)
+
+
+func test_lost_focus_pauses_with_pause_screen() -> void:
+	var yard := await new_yard()
+	root.propagate_notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	check(paused, "switching away pauses the game")
+	check(yard.hud.overlay.visible and yard.hud.overlay_title.text == "Paused", "pause screen shows after switching away")
+	yard.run.toggle_pause()
+	await end_yard(yard)
+
+
+func test_restart_starts_a_fresh_yard() -> void:
+	var yard := await new_yard()
+	current_scene = yard
+	Input.action_press("accelerate")
+	await frames(60)
+	Input.action_release("accelerate")
+	check(yard.lawn.cut_count > 0, "some grass cut before restarting")
+	var press := InputEventAction.new()
+	press.action = "restart"
+	press.pressed = true
+	yard._unhandled_input(press)
+	await frames(3)
+	var fresh: Node3D = current_scene
+	check(fresh != yard and is_instance_valid(fresh), "restart loads a new yard")
+	check(fresh.lawn.cut_count == 0 and fresh.run.elapsed < 1.0, "the new yard starts uncut with the clock reset")
+	await end_yard(fresh)
+
+
+func test_blocked_storage_still_finishes() -> void:
+	var yard := await new_yard()
+	yard.run.save_path = "user://no/such/folder/best.json"
+	yard.run.finish_run()
+	await frames(2)
+	check(yard.run.finished and not yard.run.storage_ok, "a blocked save is noticed, not fatal")
+	check(yard.hud.overlay_body.text.contains("blocked saving"), "finish screen explains the record was not saved")
+	var settings := Settings.new("user://no/such/folder/settings.json")
+	check(not settings.save(), "settings that cannot be saved fail quietly")
+	await end_yard(yard)
+
+
+func test_resize_keeps_touch_buttons_on_screen() -> void:
+	var yard := await new_yard()
+	var touch: TouchControls = yard.touch
+	var original := root.size
+	for size in [Vector2i(800, 600), Vector2i(1920, 800), Vector2i(1280, 720)]:
+		root.size = size
+		await process_frame
+		touch.layout()
+		var screen: Rect2 = yard.get_viewport().get_visible_rect()
+		var inside := true
+		for spec in TouchControls.BUTTONS:
+			var rect := Rect2(touch.buttons[spec[0]].position, Vector2(spec[2], spec[2]) * 2.0)
+			inside = inside and screen.encloses(rect)
+		check(inside, "touch buttons stay on screen at %s (visible %s)" % [size, screen.size])
+	root.size = original
 	await end_yard(yard)

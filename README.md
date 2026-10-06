@@ -1,5 +1,7 @@
 # Lawn Wrangler
 
+Version 1.0.0
+
 A relaxing 3D landscaping game. Ride an orange mower across the open lawn,
 hop off to trim along the fence and around the trees and flower beds with a
 weed eater, and cut 99% of the grass to finish. Built with Godot 4 and
@@ -61,7 +63,7 @@ Play. From the command line, with `godot` on your path:
 godot --headless --path godot --import
 godot --headless --path godot --script res://tests/run_tests.gd
 godot --headless --path godot --export-release Web ../site/play/index.html
-cp web/index.html site/index.html
+cp web/index.html web/credits.html site/
 python3 -m http.server 9000 --directory site
 ```
 
@@ -106,6 +108,15 @@ All models and sounds are generated in code; the game loads no model, texture
 or audio files.
 - `godot/tests/run_tests.gd`: headless tests, run in CI before every deploy.
 - `web/index.html`: the landing page that frames the game.
+- `web/credits.html`: credits and the Godot Engine license.
+- `RELEASE.md`: release checklist and how to roll back.
+
+## Credits
+
+Made by Zeke with [Godot Engine](https://godotengine.org) 4.7.2 (MIT license).
+Every model, texture and sound is generated in code, so there are no outside
+art or sound files to credit. The full Godot license notice is on the game's
+[credits page](https://ElSpaniard97.github.io/lawn-wrangler/credits.html).
 
 ## Roadmap
 
@@ -119,7 +130,11 @@ The full plan is in the project's improvement plan document.
 | 2. Grass polish: stubble, sway, clippings, gap-free cutting | Done |
 | 3. Visual slice: models, sound, landscaping, minimap (all built in code) | Done |
 | 4. Optimize and QA: fewer draw calls, quality presets, touch controls | Done |
-| 5. Release | Next |
+| 5. Release 1.0: credits, release checklist, rollback plan | Done |
 
-The original Python/pygame version was replaced by the Godot version. It is
-still in the git history before the merge that removed it.
+The original Python/pygame version was replaced by the Godot version. Its
+last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling
+back.
+
+Ideas for after 1.0: a second yard, bronze/silver/gold medal times, and a
+daily random yard layout.

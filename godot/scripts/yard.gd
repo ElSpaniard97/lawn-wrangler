@@ -212,7 +212,10 @@ func _walker_fits(spot: Vector3) -> bool:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and hud and get_tree().paused and not run.finished:
+	# Pause here as well as in RunState: the yard hears about lost focus
+	# before its children do, so the screen must not wait for them.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and hud and not run.finished:
+		get_tree().paused = true
 		hud.show_paused(true)
 
 
