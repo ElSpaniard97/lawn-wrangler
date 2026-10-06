@@ -86,6 +86,29 @@ collisions, cutting counts, record persistence, and rendering of game states.
 - `tests/test_game.py` — gameplay regression checks.
 - `.github/workflows/pages.yml` — browser build and Pages deployment.
 
+## 3D preview (Godot)
+
+`godot/` holds the Phase 0 test yard from the improvement plan: a 20 x 20 m
+lawn with a fence, a tree, a flower bed, a placeholder mower and a chase
+camera. It is published at `/preview-3d/` next to the current game.
+
+It is built with Godot 4.7.2-stable (GDScript, Compatibility renderer,
+single-threaded web export). CI downloads that exact version and checks it
+against pinned SHA-512 sums in `.github/scripts/setup-godot.sh`. Open the
+`godot/` folder in the same Godot version to edit it locally, then run:
+
+```bash
+godot --headless --path godot --import
+godot --headless --path godot --script res://tests/run_tests.gd
+godot --headless --path godot --export-release Web ../site/preview-3d/index.html
+```
+
+- `godot/scripts/lawn_grid.gd` — which grass is cut; the one source of truth.
+- `godot/scripts/lawn_view.gd` — ground stripes and chunked grass clumps.
+- `godot/scripts/mower.gd` — driving, cutting and the placeholder model.
+- `godot/scripts/run_state.gd` — timer, pause and the saved best time.
+- `godot/tests/run_tests.gd` — headless checks run in CI before export.
+
 ## Next graphics direction
 
 The next phase targets a third-person 3D presentation inspired by the supplied
