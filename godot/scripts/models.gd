@@ -54,3 +54,31 @@ static func person(seated: bool) -> Node3D:
 	add_box(root, Vector3(0.28, 0.08, 0.3), Vector3(0, hip + 0.92, -0.02), dark) # cap
 	add_box(root, Vector3(0.32, 0.1, 0.08), Vector3(0, hip + 0.82, 0), material(Color(0.6, 0.15, 0.1), 0.6)) # ear protection
 	return root
+
+
+## Bits of grass thrown up while cutting. Set `emitting` while cells are cut.
+static func clippings(radius: float) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.amount = 40
+	p.lifetime = 0.7
+	p.emitting = false
+	p.local_coords = false
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = radius * 0.8
+	p.direction = Vector3.UP
+	p.spread = 55.0
+	p.initial_velocity_min = 1.2
+	p.initial_velocity_max = 2.6
+	p.gravity = Vector3(0, -7.0, 0)
+	p.angular_velocity_min = -360.0
+	p.angular_velocity_max = 360.0
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.2
+	var bit := QuadMesh.new()
+	bit.size = Vector2(0.05, 0.02)
+	var mat := material(Color(0.32, 0.50, 0.16), 1.0)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	bit.material = mat
+	p.mesh = bit
+	return p

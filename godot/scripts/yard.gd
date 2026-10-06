@@ -292,7 +292,7 @@ func _build_tree(at: Vector3, scale_factor: float, collide: bool) -> void:
 		ring.top_radius = RING_RADIUS
 		ring.bottom_radius = RING_RADIUS + 0.03
 		ring.height = 0.2
-		ring.material = _material(Color(0.55, 0.53, 0.50), 0.9)
+		ring.material = _material(Color(0.42, 0.40, 0.38), 0.9)
 		var ring_instance := MeshInstance3D.new()
 		ring_instance.mesh = ring
 		ring_instance.position = at + Vector3(0, 0.1, 0)
