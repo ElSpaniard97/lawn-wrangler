@@ -194,7 +194,8 @@ func _draw_minimap_markers() -> void:
 func show_paused(paused: bool) -> void:
 	overlay.visible = paused
 	overlay_title.text = "Paused"
-	overlay_body.text = "Tap Pause to keep mowing." if touch else "Press P or Esc to keep mowing."
+	overlay_body.text = ("Tap Pause to keep mowing." if touch else "Press P or Esc to keep mowing.") \
+		+ "\n\nLawn Wrangler %s, made with Godot Engine" % ProjectSettings.get_setting("application/config/version", "")
 
 
 func show_finished(time: float, best: float, is_record: bool, saved: bool) -> void:

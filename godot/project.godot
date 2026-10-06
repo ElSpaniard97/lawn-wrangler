@@ -7,6 +7,7 @@ config_version=5
 
 config/name="Lawn Wrangler"
 config/description="Mow the lawn, trim the edges, beat your best time."
+config/version="1.0.0"
 run/main_scene="res://scenes/yard.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 

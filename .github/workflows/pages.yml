@@ -61,7 +61,7 @@ jobs:
           godot --headless --path godot --import
           godot --headless --path godot --export-release Web ../site/play/index.html
           test -f site/play/index.wasm
-          cp web/index.html site/index.html
+          cp web/index.html web/credits.html site/
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
