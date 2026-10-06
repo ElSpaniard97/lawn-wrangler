@@ -14,7 +14,8 @@ GDScript, and played in the browser.
 - Riding mower with a chase camera, plus walking with a weed eater.
 - The mower's blade is narrower than its body, so the strip along the fence
   and the edges of beds and tree rings need the weed eater.
-- Two stripe shades depending on which way you mow.
+- Two stripe shades depending on which way you mow; cut grass leaves short
+  stubble and throws clippings, and tall grass sways in the breeze.
 - Missed-patch highlight with H, switched on automatically at 95%.
 - Progress, patches left, speed, time and your best time on screen.
 - Pause with P / Esc, and an automatic pause when the game loses focus.
@@ -68,6 +69,7 @@ version and both sums there, and the version noted in `godot/project.godot`.
   for cutting, progress and the stripes.
 - `godot/scripts/lawn_view.gd`: draws the ground stripes and the chunked
   grass clumps, and the missed-patch highlight.
+- `godot/shaders/grass.gdshader`: grass colour, breeze sway and highlight.
 - `godot/scripts/mower.gd`, `godot/scripts/walker.gd`: driving, walking and
   cutting.
 - `godot/scripts/chase_camera.gd`: camera that follows whoever you control.
@@ -87,8 +89,8 @@ The full plan is in the project's improvement plan document.
 | Security and CI hardening | Done |
 | 0. 3D export spike | Done |
 | 1. Graybox gameplay: weed eater, hop off/on, tests ported | Done |
-| 2. Grass system polish | Next |
-| 3. Visual slice: real models, sound, landscaping | Planned |
+| 2. Grass polish: stubble, sway, clippings, gap-free cutting | Done |
+| 3. Visual slice: real models, sound, landscaping | Next |
 | 4. Optimize and QA, quality presets | Planned |
 | 5. Release | Planned |
 

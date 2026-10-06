@@ -1,25 +1,31 @@
 class_name LawnView
 extends Node3D
 ## Draws the LawnGrid: a ground texture with one pixel per cell (tall, two
-## stripe shades, or mulch) and chunked MultiMesh grass clumps that vanish
-## when their cell is cut. Chunks let the renderer cull what is off screen.
+## stripe shades, or mulch) and chunked MultiMesh grass clumps. Cutting a
+## cell drops its clump to short stubble. Chunks let the renderer cull what
+## is off screen.
 
 const CHUNK := 10 # cells per chunk side
-const TALL_COLOR := Color(0.17, 0.30, 0.09)
-const STRIPE_A_COLOR := Color(0.30, 0.47, 0.15)
-const STRIPE_B_COLOR := Color(0.22, 0.38, 0.11)
-const BLOCKED_COLOR := Color(0.33, 0.24, 0.16)
-const HIGHLIGHT_COLOR := Color(0.95, 0.78, 0.15)
+const TALL_COLOR := Color(0.14, 0.25, 0.07)
+const STRIPE_A_COLOR := Color(0.25, 0.40, 0.12)
+const STRIPE_B_COLOR := Color(0.17, 0.30, 0.08)
+const BLOCKED_COLOR := Color(0.30, 0.21, 0.14)
+const HIGHLIGHT_COLOR := Color(0.85, 0.68, 0.12)
+const STUBBLE_HEIGHT := 0.2 # fraction of full clump height left after a cut
+const TALL_DATA := Color(1, 0, 0, 0)
+const CUT_DATA := Color(0, 0, 0, 0)
 
 var grid: LawnGrid
 var image: Image
 var texture: ImageTexture
 var shade := PackedFloat32Array()
 var chunks: Array[MultiMesh] = []
+## Each cell's full-height clump transform, so a cut can shrink it in place.
+var clump_transforms: Array[Transform3D] = []
 var chunk_columns := 0
 var dirty := false
 var highlight := false
-var clump_material: StandardMaterial3D
+var clump_material: ShaderMaterial
 
 
 func build(lawn: LawnGrid) -> void:
@@ -28,7 +34,7 @@ func build(lawn: LawnGrid) -> void:
 	rng.seed = 7
 	shade.resize(grid.columns * grid.rows)
 	for i in shade.size():
-		shade[i] = rng.randf_range(-0.035, 0.035)
+		shade[i] = rng.randf_range(-0.03, 0.03)
 	_build_ground()
 	_build_clumps(rng)
 	grid.cell_cut.connect(_on_cell_cut)
@@ -55,59 +61,65 @@ func _build_ground() -> void:
 
 
 func _build_clumps(rng: RandomNumberGenerator) -> void:
+	clump_material = ShaderMaterial.new()
+	clump_material.shader = load("res://shaders/grass.gdshader")
 	var clump := _clump_mesh()
+	clump_transforms.resize(grid.columns * grid.rows)
 	chunk_columns = ceili(float(grid.columns) / CHUNK)
 	var chunk_rows := ceili(float(grid.rows) / CHUNK)
 	for cz in chunk_rows:
 		for cx in chunk_columns:
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_custom_data = true
 			mm.mesh = clump
 			mm.instance_count = CHUNK * CHUNK
 			for lz in CHUNK:
 				for lx in CHUNK:
 					var x := cx * CHUNK + lx
 					var z := cz * CHUNK + lz
-					var t := Transform3D()
-					if x < grid.columns and z < grid.rows and grid.cell(x, z) == LawnGrid.TALL:
-						var s := rng.randf_range(0.8, 1.25)
-						t = Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s, s)),
-							Vector3((x + rng.randf_range(0.2, 0.8)) * grid.cell_size, 0.0,
-								(z + rng.randf_range(0.2, 0.8)) * grid.cell_size))
-					else:
-						t = t.scaled(Vector3.ZERO)
-					mm.set_instance_transform(lz * CHUNK + lx, t)
+					var index := lz * CHUNK + lx
+					if x >= grid.columns or z >= grid.rows or grid.cell(x, z) == LawnGrid.BLOCKED:
+						mm.set_instance_transform(index, Transform3D().scaled(Vector3.ZERO))
+						mm.set_instance_custom_data(index, CUT_DATA)
+						continue
+					var s := rng.randf_range(0.8, 1.25)
+					var full := Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s, s)),
+						Vector3((x + rng.randf_range(0.2, 0.8)) * grid.cell_size, 0.0,
+							(z + rng.randf_range(0.2, 0.8)) * grid.cell_size))
+					clump_transforms[z * grid.columns + x] = full
+					var is_tall := grid.cell(x, z) == LawnGrid.TALL
+					mm.set_instance_transform(index, full if is_tall else _stubble(full))
+					mm.set_instance_custom_data(index, TALL_DATA if is_tall else CUT_DATA)
 			chunks.append(mm)
 			var instance := MultiMeshInstance3D.new()
 			instance.multimesh = mm
+			instance.material_override = clump_material
 			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(instance)
 
 
-## Three tapered blades, darker at the root, as one small mesh.
+## Five tapered blades (the shader shades them root to tip). Each blade is in the mesh twice,
+## once per winding, both with an upward normal, so it is lit from either
+## side instead of going dark on its back face.
 func _clump_mesh() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var root := Color(0.12, 0.24, 0.06)
-	var tip := Color(0.36, 0.55, 0.17)
 	for blade in 5:
 		var angle := blade * TAU / 5.0
 		var side := Vector3(cos(angle), 0, sin(angle)) * 0.03
 		var lean := Vector3(-sin(angle), 0, cos(angle)) * 0.05
 		var height := 0.24 + 0.06 * (blade % 2)
 		var points := [-side, side, Vector3(0, height, 0) + lean]
-		# Both windings with an upward normal, so blades are lit from
-		# either side instead of going dark on their back faces.
 		for order in [[0, 1, 2], [1, 0, 2]]:
 			for i in order:
 				st.set_normal(Vector3.UP)
-				st.set_color(tip if i == 2 else root)
 				st.add_vertex(points[i])
-	clump_material = StandardMaterial3D.new()
-	clump_material.vertex_color_use_as_albedo = true
-	clump_material.roughness = 1.0
-	st.set_material(clump_material)
 	return st.commit()
+
+
+func _stubble(full: Transform3D) -> Transform3D:
+	return Transform3D(full.basis.scaled(Vector3(1.0, STUBBLE_HEIGHT, 1.0)), full.origin)
 
 
 func _color_for(x: int, z: int) -> Color:
@@ -123,17 +135,27 @@ func _color_for(x: int, z: int) -> Color:
 	return Color(base.r + d, base.g + d, base.b + d * 0.5)
 
 
+func chunk_for(x: int, z: int) -> MultiMesh:
+	return chunks[(z / CHUNK) * chunk_columns + (x / CHUNK)]
+
+
+func instance_for(x: int, z: int) -> int:
+	return (z % CHUNK) * CHUNK + (x % CHUNK)
+
+
 func _on_cell_cut(x: int, z: int, _stripe: int) -> void:
 	image.set_pixel(x, z, _color_for(x, z))
-	var chunk := chunks[(z / CHUNK) * chunk_columns + (x / CHUNK)]
-	chunk.set_instance_transform((z % CHUNK) * CHUNK + (x % CHUNK), Transform3D().scaled(Vector3.ZERO))
+	var chunk := chunk_for(x, z)
+	var index := instance_for(x, z)
+	chunk.set_instance_transform(index, _stubble(clump_transforms[z * grid.columns + x]))
+	chunk.set_instance_custom_data(index, CUT_DATA)
 	dirty = true
 
 
-## Paints every uncut patch bright yellow so the last few are easy to find.
+## Paints every uncut patch yellow so the last few are easy to find.
 func set_highlight(on: bool) -> void:
 	highlight = on
-	clump_material.albedo_color = Color(3.0, 2.4, 0.4) if on else Color.WHITE
+	clump_material.set_shader_parameter("highlight", 1.0 if on else 0.0)
 	for z in grid.rows:
 		for x in grid.columns:
 			image.set_pixel(x, z, _color_for(x, z))

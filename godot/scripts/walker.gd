@@ -16,6 +16,9 @@ var measured_speed := 0.0
 var tip_offset := Vector3(0.15, 0.05, -0.85)
 var trimmer_head: Node3D
 var swath: MeshInstance3D
+var clippings: CPUParticles3D
+var last_tip := Vector3.ZERO
+var has_last_tip := false
 
 
 func _ready() -> void:
@@ -47,7 +50,11 @@ func _physics_process(delta: float) -> void:
 	trimmer_head.rotate_y(40.0 * delta)
 	if lawn:
 		var stripe := LawnGrid.STRIPE_A if absf(forward.x) >= absf(forward.z) else LawnGrid.STRIPE_B
-		lawn.cut_at(tip_position(), cut_radius, stripe)
+		var tip := tip_position()
+		var newly_cut := lawn.cut_segment(last_tip if has_last_tip else tip, tip, cut_radius, stripe)
+		last_tip = tip
+		has_last_tip = true
+		clippings.emitting = newly_cut > 0
 
 
 func tip_position() -> Vector3:
@@ -58,6 +65,9 @@ func set_active(value: bool) -> void:
 	active = value
 	visible = value
 	measured_speed = 0.0
+	has_last_tip = false
+	if clippings:
+		clippings.emitting = false
 	# A parked walker must not block the mower, so collisions follow it.
 	process_mode = Node.PROCESS_MODE_PAUSABLE if value else Node.PROCESS_MODE_DISABLED
 	collision_layer = 1 if value else 0
@@ -95,3 +105,6 @@ func _build_visual() -> void:
 	disc.height = 0.01
 	disc.material = Models.material(Color(1, 1, 1, 0.12), 1.0, true)
 	swath = Models.add_mesh(self, disc, Vector3(tip_offset.x, 0.03, tip_offset.z))
+	clippings = Models.clippings(cut_radius)
+	clippings.position = Vector3(tip_offset.x, 0.1, tip_offset.z)
+	add_child(clippings)

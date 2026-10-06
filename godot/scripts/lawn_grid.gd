@@ -77,6 +77,16 @@ func cut_at(world: Vector3, radius: float, stripe: int) -> int:
 	return newly_cut
 
 
+## Cuts along the path from one blade position to the next, so a fast
+## mower or a slow frame never leaves uncut gaps between steps.
+func cut_segment(from: Vector3, to: Vector3, radius: float, stripe: int) -> int:
+	var steps := maxi(1, ceili(from.distance_to(to) / (cell_size * 0.5)))
+	var newly_cut := 0
+	for i in range(1, steps + 1):
+		newly_cut += cut_at(from.lerp(to, float(i) / steps), radius, stripe)
+	return newly_cut
+
+
 func cell(x: int, z: int) -> int:
 	return cells[z * columns + x]
 

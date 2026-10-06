@@ -15,6 +15,7 @@ func _initialize() -> void:
 	test_cutting_counts_each_cell_once()
 	test_blocked_cells_never_count()
 	test_saved_record_rejects_bad_data()
+	test_swept_cut_leaves_no_gaps()
 	await test_mower_drives_cuts_and_stays_in_yard()
 	await test_pause_freezes_time_and_position()
 	await test_hop_off_parks_mower_and_hop_back_on()
@@ -22,6 +23,7 @@ func _initialize() -> void:
 	await test_weed_eater_reaches_fence_strip_mower_cannot()
 	await test_finish_once_and_record_survives_reload()
 	await test_highlight_and_finish_screens()
+	await test_cut_grass_becomes_stubble_and_throws_clippings()
 	_remove_test_save()
 	print("%s: %d failure(s)" % ["FAILED" if failures else "OK", failures])
 	quit(1 if failures else 0)
@@ -229,4 +231,43 @@ func test_highlight_and_finish_screens() -> void:
 	yard.run.toggle_pause()
 	yard.hud.show_finished(75.0, 70.0, false, true)
 	check(yard.hud.overlay_body.text.contains("Personal best 1:10"), "finish screen shows the best time")
+	await end_yard(yard)
+
+
+func test_swept_cut_leaves_no_gaps() -> void:
+	var grid := LawnGrid.new()
+	grid.seal_layout()
+	# One big jump, as if a slow frame moved the blade 6 m at once.
+	grid.cut_segment(Vector3(2.0, 0, 10.1), Vector3(8.0, 0, 10.1), 0.2, LawnGrid.STRIPE_A)
+	var gaps := 0
+	for x in range(8, 32):
+		if grid.cell(x, 40) == LawnGrid.TALL:
+			gaps += 1
+	check(gaps == 0, "swept cut leaves no gaps along its path (%d gaps)" % gaps)
+	grid.free()
+
+
+func test_cut_grass_becomes_stubble_and_throws_clippings() -> void:
+	var yard := await new_yard()
+	var view: LawnView = yard.view
+	var lawn: LawnGrid = yard.lawn
+	# MultiMesh data is not kept by the headless renderer, so check the
+	# stubble transform the view builds and the ground pixel it repaints.
+	var full: Transform3D = view.clump_transforms[40 * lawn.columns + 40]
+	var stubble: Transform3D = view._stubble(full)
+	check(is_equal_approx(stubble.basis.y.length(), full.basis.y.length() * LawnView.STUBBLE_HEIGHT), "cut clump shrinks to stubble")
+	check(is_equal_approx(stubble.basis.x.length(), full.basis.x.length()), "stubble keeps its width")
+	check(stubble.origin.is_equal_approx(full.origin), "stubble stays where the clump was")
+	var before := view.image.get_pixel(40, 40)
+	lawn.cut_at(Vector3(10.1, 0, 10.1), 0.1, LawnGrid.STRIPE_A)
+	check(view.image.get_pixel(40, 40).g > before.g + 0.05, "cut patch is repainted as a light stripe")
+	var saw_clippings := false
+	Input.action_press("accelerate")
+	for i in 60:
+		await physics_frame
+		saw_clippings = saw_clippings or yard.mower.clippings.emitting
+	Input.action_release("accelerate")
+	check(saw_clippings, "mowing tall grass throws clippings")
+	await frames(60)
+	check(not yard.mower.clippings.emitting, "no clippings once the mower stops")
 	await end_yard(yard)

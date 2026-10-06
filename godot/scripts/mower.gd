@@ -25,6 +25,9 @@ var blade_offset := Vector3(0, 0, -0.15)
 var wheels: Array[Node3D] = []
 var blade_disc: MeshInstance3D
 var driver: Node3D
+var clippings: CPUParticles3D
+var last_blade := Vector3.ZERO
+var has_last_blade := false
 
 
 func _ready() -> void:
@@ -61,10 +64,17 @@ func _physics_process(delta: float) -> void:
 	var cutting := driving and blades_on
 	blade_disc.visible = cutting
 
+	var newly_cut := 0
 	if cutting and lawn and measured_speed > 0.05:
 		# Mowing along X and along Z leaves the two stripe shades.
 		var stripe := LawnGrid.STRIPE_A if absf(forward.x) >= absf(forward.z) else LawnGrid.STRIPE_B
-		lawn.cut_at(to_global(blade_offset), cut_radius, stripe)
+		var blade := to_global(blade_offset)
+		newly_cut = lawn.cut_segment(last_blade if has_last_blade else blade, blade, cut_radius, stripe)
+		last_blade = blade
+		has_last_blade = true
+	else:
+		has_last_blade = false
+	clippings.emitting = newly_cut > 0
 
 
 func toggle_blades() -> void:
@@ -104,6 +114,10 @@ func _build_visual() -> void:
 	disc.height = 0.01
 	disc.material = Models.material(Color(1, 1, 1, 0.12), 1.0, true)
 	blade_disc = Models.add_mesh(self, disc, Vector3(blade_offset.x, 0.03, blade_offset.z))
+
+	clippings = Models.clippings(cut_radius)
+	clippings.position = Vector3(blade_offset.x, 0.1, blade_offset.z)
+	add_child(clippings)
 
 	driver = Models.person(true)
 	driver.position = Vector3(0, 0.78, 0.08)
