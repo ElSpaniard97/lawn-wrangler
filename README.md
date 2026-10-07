@@ -24,7 +24,9 @@ shadows. It also draws thicker grass. Download it from the
   warn; choose More info, then Run anyway.
 - [Mac](https://ElSpaniard97.github.io/lawn-wrangler/download/LawnWrangler-macos.zip):
   unzip and move Lawn Wrangler to Applications. It is not notarized yet, so
-  the first time, right-click it and choose Open.
+  the first time macOS says "Lawn Wrangler" Not Opened: click Done, then
+  open System Settings, Privacy & Security, scroll down and click Open
+  Anyway next to Lawn Wrangler. After that it opens normally.
 - [Linux](https://ElSpaniard97.github.io/lawn-wrangler/download/LawnWrangler-linux.zip):
   unzip and run `LawnWrangler.x86_64`.
 
