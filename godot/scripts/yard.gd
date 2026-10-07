@@ -1,14 +1,29 @@
 extends Node3D
-## The yard: 20 x 20 m of lawn inside a fence, two trees in stone rings and
-## two flower beds. Ride the mower for the open lawn, then hop off and use
-## the weed eater along the fence and around the trees and beds.
+## The yard: a 30 x 36 m lot inside a wood privacy fence. The house stands
+## along the left side with a porch facing the lawn, so the grass wraps
+## round it as a back yard, a side yard and a front yard. Trees sit in
+## stone rings, shrubs and flowers fill edged beds, and a pergola shades a
+## patio in the back corner. Ride the mower for the open lawn, then hop off
+## and use the weed eater along the fence and around everything else.
 
-const YARD_SIZE := 20.0
+## Lot size in metres: x across, z from the back fence to the front.
+const LOT := Vector2(30.0, 36.0)
 ## Trees: x, z. Each sits in a stone ring the mower cannot drive over.
-const TREES := [Vector2(13.0, 7.0), Vector2(5.5, 4.5)]
+const TREES := [Vector2(20.0, 8.0), Vector2(24.0, 28.0), Vector2(6.0, 31.0)]
 const RING_RADIUS := 0.6
-## Flower beds: x, z, radius.
-const BEDS := [Vector3(5.0, 12.5, 1.0), Vector3(15.0, 15.0, 1.3)]
+## Round flower beds: x, z, radius.
+const BEDS := [Vector3(25.0, 17.5, 1.3), Vector3(14.0, 6.0, 1.0)]
+## The house (centre, size along x and z) and its porch.
+const HOUSE_CENTER := Vector2(5.0, 19.0)
+const HOUSE_SIZE := Vector2(10.0, 12.0)
+const PORCH := Rect2(10.0, 15.8, 4.0, 6.4)
+## Edged shrub beds: along the house either side of the porch, the back
+## fence and the right fence.
+const SHRUB_BEDS := [Rect2(10.0, 13.0, 1.5, 2.8), Rect2(10.0, 22.2, 1.5, 2.8),
+	Rect2(3.0, 0.0, 14.0, 1.4), Rect2(28.6, 10.0, 1.4, 14.0)]
+## Paver patio under the pergola, in the back right corner.
+const PATIO := Rect2(21.5, 0.0, 8.5, 7.5)
+const START := Vector3(16.0, 0.05, 30.5)
 const WIN_PERCENT := 99.0
 const MPS_TO_MPH := 2.237
 const REMOUNT_DISTANCE := 1.8
@@ -51,12 +66,19 @@ func _ready() -> void:
 
 	lawn = LawnGrid.new()
 	lawn.name = "LawnGrid"
+	lawn.columns = int(LOT.x / lawn.cell_size)
+	lawn.rows = int(LOT.y / lawn.cell_size)
 	add_child(lawn)
 	lawn.reset()
 	for tree in TREES:
 		lawn.block_circle(tree.x, tree.y, RING_RADIUS)
 	for bed in BEDS:
 		lawn.block_circle(bed.x, bed.y, bed.z)
+	lawn.block_rect(Rect2(HOUSE_CENTER - HOUSE_SIZE / 2.0, HOUSE_SIZE))
+	lawn.block_rect(PORCH)
+	lawn.block_rect(PATIO)
+	for bed in SHRUB_BEDS:
+		lawn.block_rect(bed)
 	lawn.seal_layout()
 
 	view = LawnView.new()
@@ -73,6 +95,9 @@ func _ready() -> void:
 		_build_tree(Vector3(tree.x, 0, tree.y), 1.0, true)
 	for bed in BEDS:
 		_build_bed(Vector3(bed.x, 0, bed.y), bed.z)
+	for bed in SHRUB_BEDS:
+		_build_shrub_bed(bed)
+	_build_pergola(PATIO)
 	_build_scenery()
 	Models.bake(scenery)
 
@@ -81,7 +106,7 @@ func _ready() -> void:
 	mower.process_mode = Node.PROCESS_MODE_PAUSABLE
 	mower.lawn = lawn
 	add_child(mower)
-	mower.global_position = Vector3(2.0, 0.05, 16.5)
+	mower.global_position = START
 
 	walker = Walker.new()
 	walker.name = "Walker"
@@ -134,7 +159,7 @@ func _process(_delta: float) -> void:
 
 ## Where a spot in the yard falls on the minimap, as fractions across it.
 func map_point(at: Vector3) -> Vector2:
-	return Vector2(clampf(at.x / YARD_SIZE, 0.0, 1.0), clampf(at.z / YARD_SIZE, 0.0, 1.0))
+	return Vector2(clampf(at.x / LOT.x, 0.0, 1.0), clampf(at.z / LOT.y, 0.0, 1.0))
 
 
 ## On-screen buttons replace the keyboard list on phones and tablets.
@@ -207,7 +232,7 @@ func toggle_mower() -> bool:
 
 
 func _walker_fits(spot: Vector3) -> bool:
-	if spot.x < 0.3 or spot.z < 0.3 or spot.x > YARD_SIZE - 0.3 or spot.z > YARD_SIZE - 0.3:
+	if spot.x < 0.3 or spot.z < 0.3 or spot.x > LOT.x - 0.3 or spot.z > LOT.y - 0.3:
 		return false
 	var shape := CapsuleShape3D.new()
 	shape.radius = 0.25
@@ -339,19 +364,21 @@ func _build_environment() -> void:
 	outer.material = Models.textured("grass", Color(0.62, 0.68, 0.55), 1.6, 1.0)
 	var outer_instance := MeshInstance3D.new()
 	outer_instance.mesh = outer
-	outer_instance.position = Vector3(YARD_SIZE / 2.0, -0.02, YARD_SIZE / 2.0)
+	outer_instance.position = Vector3(LOT.x / 2.0, -0.02, LOT.y / 2.0)
 	add_child(outer_instance)
 
 
+## A 1.8 m wood privacy fence: tight vertical boards with a cap rail, and
+## posts and two rails on the yard side.
 func _build_fence() -> void:
-	var wood := Models.textured("wood", Color.WHITE, 1.0)
-	var post_wood := Models.textured("wood", Color(0.78, 0.72, 0.68), 1.0)
-	var height := 1.2
+	var boards := Models.textured("wood", Color.WHITE, 1.0)
+	var frame := Models.textured("wood", Color(0.78, 0.72, 0.68), 1.0)
+	var height := 1.8
 	var walls := [
-		[Vector3(YARD_SIZE / 2.0, 0, -0.1), Vector3(YARD_SIZE + 0.4, height, 0.2)],
-		[Vector3(YARD_SIZE / 2.0, 0, YARD_SIZE + 0.1), Vector3(YARD_SIZE + 0.4, height, 0.2)],
-		[Vector3(-0.1, 0, YARD_SIZE / 2.0), Vector3(0.2, height, YARD_SIZE)],
-		[Vector3(YARD_SIZE + 0.1, 0, YARD_SIZE / 2.0), Vector3(0.2, height, YARD_SIZE)],
+		[Vector3(LOT.x / 2.0, 0, -0.1), Vector3(LOT.x + 0.4, height, 0.2)],
+		[Vector3(LOT.x / 2.0, 0, LOT.y + 0.1), Vector3(LOT.x + 0.4, height, 0.2)],
+		[Vector3(-0.1, 0, LOT.y / 2.0), Vector3(0.2, height, LOT.y)],
+		[Vector3(LOT.x + 0.1, 0, LOT.y / 2.0), Vector3(0.2, height, LOT.y)],
 	]
 	for wall in walls:
 		var at: Vector3 = wall[0]
@@ -364,35 +391,38 @@ func _build_fence() -> void:
 		body.add_child(collider)
 		body.position = at + Vector3(0, height / 2.0, 0)
 		scenery.add_child(body)
-		# Pickets every 0.25 m along the wall.
 		var length := maxf(size.x, size.z)
 		var along_x := size.x > size.z
-		var count := int(length / 0.25)
-		var picket := BoxMesh.new()
-		picket.size = Vector3(0.18, height, 0.04) if along_x else Vector3(0.04, height, 0.18)
-		picket.material = wood
+		# Boards every 15 cm, each slightly different in height.
+		var count := int(length / 0.15)
+		var board := BoxMesh.new()
+		board.size = Vector3(0.145, height, 0.025) if along_x else Vector3(0.025, height, 0.145)
+		board.material = boards
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = picket
+		mm.mesh = board
 		mm.instance_count = count
 		for i in count:
 			var offset := -length / 2.0 + (i + 0.5) * length / count
 			var local := Vector3(offset, 0, 0) if along_x else Vector3(0, 0, offset)
-			mm.set_instance_transform(i, Transform3D(Basis(), local))
-		var pickets := MultiMeshInstance3D.new()
-		pickets.multimesh = mm
-		body.add_child(pickets)
-		# Posts every few metres and two rails on the outside of the pickets.
-		var outward := (at - Vector3(YARD_SIZE / 2.0, 0, YARD_SIZE / 2.0)).normalized() * 0.07
+			var stretch := 1.0 + 0.012 * ((i * 7) % 3)
+			mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3(1, stretch, 1)), local + Vector3(0, height * (stretch - 1.0) / 2.0, 0)))
+		var fence_boards := MultiMeshInstance3D.new()
+		fence_boards.multimesh = mm
+		body.add_child(fence_boards)
+		# Cap rail on top; posts every 2.4 m and two rails on the yard side.
+		var inward := (Vector3(LOT.x / 2.0, 0, LOT.y / 2.0) - at)
+		inward = Vector3(signf(inward.x), 0, 0) if not along_x else Vector3(0, 0, signf(inward.z))
 		var axis := Vector3(1, 0, 0) if along_x else Vector3(0, 0, 1)
-		var posts := int(length / 2.5)
+		var cap := Vector3(length, 0.05, 0.12) if along_x else Vector3(0.12, 0.05, length)
+		Models.add_box(body, cap, Vector3(0, height / 2.0 + 0.03, 0), frame)
+		var posts := int(length / 2.4)
 		for i in posts + 1:
-			var post_at := axis * (-length / 2.0 + i * length / posts) + outward
-			Models.add_box(body, Vector3(0.1, height + 0.15, 0.1), post_at + Vector3(0, 0.07, 0), post_wood)
-			Models.add_box(body, Vector3(0.14, 0.04, 0.14), post_at + Vector3(0, height / 2.0 + 0.16, 0), post_wood)
-		for rail_y in [-0.3, 0.38]:
-			var rail_size := Vector3(length, 0.08, 0.04) if along_x else Vector3(0.04, 0.08, length)
-			Models.add_box(body, rail_size, outward * 0.6 + Vector3(0, rail_y, 0), post_wood)
+			var post_at := axis * (-length / 2.0 + i * length / posts) + inward * 0.07
+			Models.add_box(body, Vector3(0.1, height + 0.08, 0.1), post_at + Vector3(0, 0.04, 0), frame)
+		for rail_y in [-0.6, 0.6]:
+			var rail_size := Vector3(length, 0.09, 0.04) if along_x else Vector3(0.04, 0.09, length)
+			Models.add_box(body, rail_size, inward * 0.04 + Vector3(0, rail_y, 0), frame)
 
 
 ## A round leafy tree, or a pine when `pine` is set. Trees inside the yard
@@ -511,27 +541,152 @@ func _build_bed(at: Vector3, radius: float) -> void:
 
 
 func _build_scenery() -> void:
-	# The house behind the far fence, neighbours on either side, and trees.
-	_build_house(Vector3(8, 0, -6), Vector3(12, 4.6, 7), 0.0, Color(0.80, 0.77, 0.70), Color(0.30, 0.28, 0.28), true)
-	_build_house(Vector3(-11, 0, 9), Vector3(9, 4.0, 7), 90.0, Color(0.62, 0.70, 0.76), Color(0.36, 0.22, 0.18), false)
-	_build_house(Vector3(31, 0, 11), Vector3(9, 4.2, 7), -90.0, Color(0.82, 0.74, 0.58), Color(0.25, 0.27, 0.32), false)
-	var spots := [Vector3(-4, 0, 1), Vector3(-5, 0, 18), Vector3(24.5, 0, 2), Vector3(24, 0, 19), Vector3(18, 0, 26), Vector3(3, 0, 26), Vector3(10, 0, 30)]
+	# The family house inside the lot, its porch facing the lawn.
+	_build_house(Vector3(HOUSE_CENTER.x, 0, HOUSE_CENTER.y), Vector3(HOUSE_SIZE.y, 5.2, HOUSE_SIZE.x), 90.0,
+		Color(0.90, 0.89, 0.86), Color(0.24, 0.24, 0.26), false, true)
+	_add_block(Rect2(HOUSE_CENTER - HOUSE_SIZE / 2.0, HOUSE_SIZE), 5.0)
+	_add_block(Rect2(PORCH.position, Vector2(2.8, PORCH.size.y)), 0.6) # deck and steps
+	# Neighbours over the back and side fences and across the street. They
+	# share three colour schemes so the baked scenery keeps few materials.
+	_build_house(Vector3(8, 0, -9), Vector3(12, 4.6, 7), 0.0, Color(0.80, 0.77, 0.70), Color(0.30, 0.28, 0.28), true)
+	_build_house(Vector3(24, 0, -10), Vector3(9, 4.2, 7), 0.0, Color(0.62, 0.70, 0.76), Color(0.36, 0.22, 0.18), false)
+	_build_house(Vector3(-12, 0, 6), Vector3(9, 4.0, 7), 90.0, Color(0.82, 0.74, 0.58), Color(0.25, 0.27, 0.32), false)
+	_build_house(Vector3(41, 0, 20), Vector3(10, 4.4, 7), -90.0, Color(0.80, 0.77, 0.70), Color(0.30, 0.28, 0.28), true)
+	_build_house(Vector3(14, 0, 48), Vector3(11, 4.4, 7), 180.0, Color(0.62, 0.70, 0.76), Color(0.36, 0.22, 0.18), true)
+	var spots := [Vector3(-4, 0, 22), Vector3(-5, 0, 32), Vector3(35, 0, 4), Vector3(34, 0, 31),
+		Vector3(16, 0, -4), Vector3(-3, 0, -3), Vector3(28, 0, 41), Vector3(3, 0, 41), Vector3(34, 0, 12)]
 	for i in spots.size():
-		_build_tree(spots[i], 1.3 if i % 2 else 1.1, false, i % 2 == 0)
+		_build_tree(spots[i], 1.3 if i % 2 else 1.1, false, i % 3 == 0)
 	# A ring of distant trees hides the edge of the world.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
-	for i in 26:
-		var angle := i * TAU / 26.0 + rng.randf_range(-0.08, 0.08)
-		var distance := rng.randf_range(34.0, 46.0)
-		var spot := Vector3(YARD_SIZE / 2.0 + cos(angle) * distance, 0, YARD_SIZE / 2.0 + sin(angle) * distance)
-		_build_tree(spot, rng.randf_range(1.6, 2.4), false, rng.randf() < 0.35)
+	for i in 32:
+		var angle := i * TAU / 32.0 + rng.randf_range(-0.06, 0.06)
+		var distance := rng.randf_range(44.0, 58.0)
+		var spot := Vector3(LOT.x / 2.0 + cos(angle) * distance, 0, LOT.y / 2.0 + sin(angle) * distance)
+		_build_tree(spot, rng.randf_range(1.7, 2.5), false, rng.randf() < 0.35)
+
+
+## An invisible box collider over a rectangle of the yard (x, z in metres).
+func _add_block(rect: Rect2, height: float) -> void:
+	var body := StaticBody3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(rect.size.x, height, rect.size.y)
+	var collider := CollisionShape3D.new()
+	collider.shape = shape
+	body.add_child(collider)
+	body.position = Vector3(rect.get_center().x, height / 2.0, rect.get_center().y)
+	scenery.add_child(body)
+
+
+## A rectangular bed of mulch with stone edging, a row of rounded shrubs
+## in a few greens, and flowers in front of them.
+func _build_shrub_bed(rect: Rect2) -> void:
+	var center := Vector3(rect.get_center().x, 0, rect.get_center().y)
+	Models.add_box(scenery, Vector3(rect.size.x, 0.12, rect.size.y), center + Vector3(0, 0.06, 0),
+		Models.textured("mulch", Color.WHITE, 0.8, 1.0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(rect.position.x * 17.0 + rect.position.y * 5.0)
+	# Edging stones round the rim.
+	var stone := SphereMesh.new()
+	stone.radius = 0.12
+	stone.height = 0.14
+	stone.radial_segments = 8
+	stone.rings = 4
+	stone.material = Models.textured("stone", Color.WHITE, 0.5)
+	var rim := []
+	var corners := [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]
+	for side in 4:
+		var a: Vector2 = corners[side]
+		var b: Vector2 = corners[(side + 1) % 4]
+		var count := maxi(1, int(a.distance_to(b) / 0.22))
+		for i in count:
+			rim.append(a.lerp(b, float(i) / count))
+	var stones := MultiMesh.new()
+	stones.transform_format = MultiMesh.TRANSFORM_3D
+	stones.mesh = stone
+	stones.instance_count = rim.size()
+	for i in rim.size():
+		var size := rng.randf_range(0.85, 1.15)
+		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(size, size, size))
+		stones.set_instance_transform(i, Transform3D(basis, Vector3(rim[i].x, 0.1, rim[i].y)))
+	var stone_instance := MultiMeshInstance3D.new()
+	stone_instance.multimesh = stones
+	scenery.add_child(stone_instance)
+	# Shrubs along the long axis, flowers along the lawn side of them.
+	var along_x := rect.size.x >= rect.size.y
+	var length := rect.size.x if along_x else rect.size.y
+	var depth := rect.size.y if along_x else rect.size.x
+	var axis := Vector3(1, 0, 0) if along_x else Vector3(0, 0, 1)
+	var across := Vector3(0, 0, 1) if along_x else Vector3(1, 0, 0)
+	var greens := [Models.textured("leaves", Color.WHITE, 0.6, 1.0),
+		Models.textured("leaves", Color(0.8, 0.95, 0.75), 0.6, 1.0),
+		Models.textured("leaves", Color(1.1, 1.05, 0.85), 0.6, 1.0)]
+	var count := maxi(1, int(length / 0.95))
+	for i in count:
+		var spot := center + axis * (-length / 2.0 + (i + 0.5) * length / count)
+		var radius := minf(rng.randf_range(0.38, 0.5), depth * 0.42)
+		var shrub := spot + across * rng.randf_range(-0.1, 0.1) + Vector3(0, 0.12 + radius * 0.75, 0)
+		Models.add_sphere(scenery, radius, shrub, greens[i % greens.size()], 0.85)
+		Models.add_sphere(scenery, radius * 0.6, shrub + axis * radius * 0.6 + Vector3(0, radius * 0.35, 0), greens[(i + 1) % greens.size()], 0.85)
+	var colors := [Color(0.85, 0.3, 0.5), Color(0.95, 0.8, 0.25), Color(0.92, 0.92, 0.96), Color(0.6, 0.35, 0.85)]
+	var stem := _material(Color(0.2, 0.45, 0.15), 1.0)
+	var flowers := int(length / 0.45)
+	for i in flowers:
+		for edge in [-1.0, 1.0]:
+			var base: Vector3 = center + axis * (-length / 2.0 + (i + 0.5) * length / flowers) + across * edge * (depth / 2.0 - 0.2)
+			base.y = 0.12
+			var tall := rng.randf_range(0.14, 0.26)
+			Models.add_rod(scenery, base, base + Vector3(0, tall, 0), 0.01, stem, 4)
+			Models.add_sphere(scenery, 0.06, base + Vector3(0, tall + 0.02, 0), _material(colors[(i + int(edge)) % colors.size()], 0.8), 0.6)
+	_add_block(rect, 0.6)
+
+
+## A paver patio with a wood pergola over it: four posts, two beams and a
+## row of rafters, and a table with chairs underneath.
+func _build_pergola(rect: Rect2) -> void:
+	var center := Vector3(rect.get_center().x, 0, rect.get_center().y)
+	Models.add_box(scenery, Vector3(rect.size.x, 0.06, rect.size.y), center + Vector3(0, 0.03, 0),
+		Models.textured("pavers", Color.WHITE, 1.5))
+	var wood := Models.textured("wood", Color(0.7, 0.55, 0.42), 1.0)
+	var inset := Vector2(rect.size.x / 2.0 - 0.8, rect.size.y / 2.0 - 0.8)
+	var height := 2.6
+	for x in [-1, 1]:
+		for z in [-1, 1]:
+			var post := center + Vector3(x * inset.x, 0, z * inset.y)
+			Models.add_box(scenery, Vector3(0.18, height, 0.18), post + Vector3(0, height / 2.0, 0), wood)
+			_add_block(Rect2(post.x - 0.15, post.z - 0.15, 0.3, 0.3), height)
+	for z in [-1, 1]:
+		Models.add_box(scenery, Vector3(inset.x * 2.0 + 1.0, 0.24, 0.1), center + Vector3(0, height - 0.12, z * inset.y), wood)
+	var rafters := int(inset.x * 2.0 / 0.45) + 1
+	for i in rafters:
+		var x := -inset.x + i * inset.x * 2.0 / (rafters - 1)
+		Models.add_box(scenery, Vector3(0.06, 0.16, inset.y * 2.0 + 0.9), center + Vector3(x, height + 0.08, 0), wood)
+	# Table and four chairs.
+	var dark := _material(Color(0.16, 0.16, 0.17), 0.6)
+	Models.add_cylinder(scenery, 0.7, 0.05, center + Vector3(0, 0.74, 0), wood, Vector3.ZERO, 20)
+	Models.add_cylinder(scenery, 0.06, 0.72, center + Vector3(0, 0.37, 0), dark)
+	for i in 4:
+		var angle := i * TAU / 4.0 + 0.4
+		var chair := center + Vector3(cos(angle), 0, sin(angle)) * 1.05
+		var holder := Node3D.new()
+		holder.position = chair
+		holder.rotation.y = -angle - PI / 2.0
+		scenery.add_child(holder)
+		Models.add_box(holder, Vector3(0.45, 0.05, 0.45), Vector3(0, 0.45, 0), wood)
+		Models.add_box(holder, Vector3(0.45, 0.45, 0.05), Vector3(0, 0.7, 0.21), wood)
+		for leg_x in [-0.19, 0.19]:
+			for leg_z in [-0.19, 0.19]:
+				Models.add_box(holder, Vector3(0.04, 0.45, 0.04), Vector3(leg_x, 0.22, leg_z), dark)
+	_add_block(Rect2(center.x - 1.4, center.z - 1.4, 2.8, 2.8), 1.0)
 
 
 ## A house facing local +Z: sided walls on a stone foundation, a shingled
-## roof with overhang, stone chimney, windows, a door with a step and paver
-## patio, and a garage door and driveway on the main house.
-func _build_house(at: Vector3, size: Vector3, turn: float, wall_color: Color, roof_color: Color, garage: bool) -> void:
+## roof with overhang, stone chimney, trimmed windows (two rows on a tall
+## house) and a door. A garage adds a garage door and driveway; a porch adds
+## a covered porch on posts with steps, otherwise the door gets a step and
+## a small paver patio.
+func _build_house(at: Vector3, size: Vector3, turn: float, wall_color: Color, roof_color: Color, garage: bool, porch := false) -> void:
 	var house := Node3D.new()
 	house.position = at
 	house.rotation_degrees.y = turn
@@ -540,41 +695,94 @@ func _build_house(at: Vector3, size: Vector3, turn: float, wall_color: Color, ro
 	# The photos average about 0.81 (siding) and 0.27 (shingles) in brightness.
 	var wall := Models.textured("siding_white", _tint(wall_color, 0.81), 2.0)
 	var stone := Models.textured("stone", Color.WHITE, 1.2)
+	var shingles := Models.textured("shingles", _tint(roof_color, 0.27), 2.0, 0.85)
 	var trim := _material(Color(0.95, 0.95, 0.93), 0.7)
-	var glass := Models.glow(Color(0.45, 0.6, 0.72), 0.25)
+	var concrete := Models.textured("concrete", Color.WHITE, 1.5)
 	var front := size.z / 2.0
 	Models.add_box(house, size, Vector3(0, size.y / 2.0, 0), wall)
 	Models.add_box(house, Vector3(size.x + 0.1, 0.3, size.z + 0.1), Vector3(0, 0.15, 0), stone) # foundation
 	var roof := PrismMesh.new()
-	roof.size = Vector3(size.x + 1.0, size.y * 0.5, size.z + 1.2)
-	roof.material = Models.textured("shingles", _tint(roof_color, 0.27), 2.0, 0.85)
-	Models.add_mesh(house, roof, Vector3(0, size.y + size.y * 0.25, 0))
+	roof.size = Vector3(size.x + 1.0, size.y * 0.45, size.z + 1.2)
+	roof.material = shingles
+	Models.add_mesh(house, roof, Vector3(0, size.y + size.y * 0.225, 0))
 	Models.add_box(house, Vector3(0.8, 2.0, 0.8), Vector3(size.x * 0.3, size.y + 1.4, -size.z * 0.15), stone) # chimney
 	Models.add_box(house, Vector3(size.x + 0.2, 0.15, size.z + 0.2), Vector3(0, size.y, 0), trim) # eave trim
-	# Door near one end, garage at the other, windows between.
+	for corner in [-1, 1]:
+		Models.add_box(house, Vector3(0.14, size.y, 0.14), Vector3(corner * size.x / 2.0, size.y / 2.0, front), trim) # corner boards
+	# Door near one end with a garage, otherwise in the middle.
 	var door_x := -size.x * 0.3 if garage else 0.0
-	Models.add_box(house, Vector3(1.1, 2.2, 0.08), Vector3(door_x, 1.1 + 0.3, front + 0.02), _material(Color(0.35, 0.18, 0.12), 0.7))
-	var concrete := Models.textured("concrete", Color.WHITE, 1.5)
-	Models.add_box(house, Vector3(1.6, 0.2, 0.8), Vector3(door_x, 0.1, front + 0.4), concrete) # step
-	# A paver patio past the step, and a concrete driveway at the garage.
-	Models.add_box(house, Vector3(2.4, 0.06, 1.4), Vector3(door_x, 0.03, front + 1.5), Models.textured("pavers", Color.WHITE, 1.5))
+	Models.add_box(house, Vector3(1.3, 2.4, 0.08), Vector3(door_x, 1.2 + 0.3, front + 0.02), trim)
+	Models.add_box(house, Vector3(1.1, 2.2, 0.1), Vector3(door_x, 1.1 + 0.3, front + 0.03), _material(Color(0.22, 0.20, 0.19), 0.6))
+	if porch:
+		_build_porch(house, Vector3(door_x, 0, front), minf(size.x * 0.25, 6.0), roof_color)
+	else:
+		Models.add_box(house, Vector3(1.6, 0.2, 0.8), Vector3(door_x, 0.1, front + 0.4), concrete) # step
+		Models.add_box(house, Vector3(2.4, 0.06, 1.4), Vector3(door_x, 0.03, front + 1.5), Models.textured("pavers", Color.WHITE, 1.5))
 	if garage:
 		Models.add_box(house, Vector3(3.8, 0.06, 2.3), Vector3(size.x * 0.33, 0.03, front + 1.15), concrete)
-	var windows: Array = [-size.x * 0.32, size.x * 0.32] if not garage else [-size.x * 0.08, size.x * 0.12]
-	if garage:
 		Models.add_box(house, Vector3(3.2, 2.5, 0.08), Vector3(size.x * 0.33, 1.25 + 0.3, front + 0.02), trim)
 		for row in 4:
 			Models.add_box(house, Vector3(3.0, 0.03, 0.1), Vector3(size.x * 0.33, 0.9 + row * 0.6, front + 0.04), _material(Color(0.8, 0.8, 0.78), 0.7))
+	var windows: Array = [-size.x * 0.08, size.x * 0.12] if garage else [-size.x * 0.34, size.x * 0.34]
 	for x in windows:
-		Models.add_box(house, Vector3(1.4, 1.3, 0.08), Vector3(x, 2.1, front + 0.02), trim)
-		Models.add_box(house, Vector3(1.2, 1.1, 0.1), Vector3(x, 2.1, front + 0.03), glass)
-		Models.add_box(house, Vector3(0.05, 1.1, 0.12), Vector3(x, 2.1, front + 0.04), trim)
-		Models.add_box(house, Vector3(1.2, 0.05, 0.12), Vector3(x, 2.1, front + 0.04), trim)
-	# Back and side windows so the neighbours look lived in from any angle.
+		_add_window(house, Vector3(x, 2.1, front), trim)
+	if size.y > 4.5:
+		for x in [-size.x * 0.3, 0.0, size.x * 0.3]:
+			_add_window(house, Vector3(x, 3.9, front), trim)
+	# Back and side windows so the houses look lived in from any angle.
 	for x in [-size.x * 0.25, size.x * 0.25]:
-		Models.add_box(house, Vector3(1.2, 1.1, 0.1), Vector3(x, 2.1, -front - 0.03), glass)
+		_add_window(house, Vector3(x, 2.1, -front), trim, true)
 	for side in [-1, 1]:
-		Models.add_box(house, Vector3(0.1, 1.1, 1.2), Vector3(side * (size.x / 2.0 + 0.03), 2.1, 0), glass)
+		var side_window := Node3D.new()
+		side_window.position = Vector3(side * size.x / 2.0, 0, 0)
+		side_window.rotation_degrees.y = 90.0 * side
+		house.add_child(side_window)
+		for z in [-size.z * 0.22, size.z * 0.22]:
+			_add_window(side_window, Vector3(z, 2.1, 0), trim)
+
+
+## A trimmed window with a cross bar, on a wall whose outside faces +Z (or
+## -Z when `back` is set) at `at`.
+func _add_window(parent: Node3D, at: Vector3, trim: Material, back := false) -> void:
+	var out := -1.0 if back else 1.0
+	var glass := Models.glow(Color(0.45, 0.6, 0.72), 0.25)
+	Models.add_box(parent, Vector3(1.4, 1.4, 0.08), at + Vector3(0, 0, 0.02 * out), trim)
+	Models.add_box(parent, Vector3(1.2, 1.2, 0.1), at + Vector3(0, 0, 0.03 * out), glass)
+	Models.add_box(parent, Vector3(0.05, 1.2, 0.12), at + Vector3(0, 0, 0.04 * out), trim)
+	Models.add_box(parent, Vector3(1.2, 0.05, 0.12), at + Vector3(0, 0, 0.04 * out), trim)
+	Models.add_box(parent, Vector3(1.6, 0.08, 0.16), at + Vector3(0, -0.72, 0.06 * out), trim) # sill
+
+
+## A covered front porch: a raised deck, wood posts on stone bases, a
+## shingled roof and two steps down to a paver landing.
+func _build_porch(house: Node3D, door: Vector3, half_width: float, roof_color: Color) -> void:
+	var deck := Models.textured("wood", Color(0.85, 0.8, 0.75), 1.0)
+	var posts := Models.textured("wood", Color(0.7, 0.55, 0.42), 1.0)
+	var stone := Models.textured("stone", Color.WHITE, 1.0)
+	var depth := 2.4
+	var floor_y := 0.35
+	Models.add_box(house, Vector3(half_width * 2.0, floor_y, depth), door + Vector3(0, floor_y / 2.0, depth / 2.0), deck)
+	for x in [-half_width + 0.2, -1.0, 1.0, half_width - 0.2]:
+		var base := door + Vector3(x, floor_y, depth - 0.2)
+		Models.add_box(house, Vector3(0.4, 0.6, 0.4), base + Vector3(0, 0.3, 0), stone)
+		Models.add_box(house, Vector3(0.2, 2.1, 0.2), base + Vector3(0, 1.65, 0), posts)
+	var roof_y := floor_y + 2.75
+	Models.add_box(house, Vector3(half_width * 2.0 + 0.4, 0.2, depth + 0.3), door + Vector3(0, roof_y, depth / 2.0), Models.textured("wood", Color(0.9, 0.88, 0.85), 1.0))
+	var roof := PrismMesh.new()
+	roof.size = Vector3(half_width * 2.0 + 0.6, 0.9, depth + 0.5)
+	roof.material = Models.textured("shingles", _tint(roof_color, 0.27), 2.0, 0.85)
+	Models.add_mesh(house, roof, door + Vector3(0, roof_y + 0.55, depth / 2.0))
+	var concrete := Models.textured("concrete", Color.WHITE, 1.5)
+	Models.add_box(house, Vector3(1.8, 0.23, 0.35), door + Vector3(0, 0.115, depth + 0.17), concrete)
+	Models.add_box(house, Vector3(1.8, 0.12, 0.35), door + Vector3(0, 0.06, depth + 0.5), concrete)
+	Models.add_box(house, Vector3(2.4, 0.06, 1.0), door + Vector3(0, 0.03, depth + 1.1), Models.textured("pavers", Color.WHITE, 1.5))
+	# A hanging basket and a potted plant either side of the door.
+	var leaves := Models.textured("leaves", Color.WHITE, 0.6, 1.0)
+	Models.add_sphere(house, 0.3, door + Vector3(half_width - 0.9, roof_y - 0.6, depth - 0.3), leaves)
+	for side in [-1, 1]:
+		var pot := door + Vector3(side * 1.0, floor_y, 0.5)
+		Models.add_cylinder(house, 0.2, 0.4, pot + Vector3(0, 0.2, 0), _material(Color(0.25, 0.22, 0.2), 0.8))
+		Models.add_sphere(house, 0.3, pot + Vector3(0, 0.6, 0), leaves, 0.9)
 
 
 ## The tint that turns a photo of average brightness `mean` into `color`.

@@ -38,20 +38,24 @@ Forward+ falls back to the same renderer as the web version.
   drive tires and the engine behind the seat, followed by a chase camera,
   and a landscaper in a gray tee, cap and ear protection who walks with a
   weed eater.
-- A dressed yard: houses next door, a picket fence with posts and rails,
-  shade trees and pines, and flower beds edged with stones.
+- A big 30 x 36 m yard inside a wood privacy fence. The family house
+  stands along the left side with a covered front porch, so the lawn wraps
+  round it as a back, side and front yard. Shrub beds edged with stones line
+  the house and fences, a pergola shades a paver patio with a table and
+  chairs, and shade trees, pines, flower beds and neighbours' houses fill
+  the rest.
 - Engine, blade, weed eater and grass rustle sounds, and a chime when you
   finish. M turns the sound off and on.
 - A minimap of the lawn showing what is cut and where you are.
 - The mower's blade is narrower than its body, so the strip along the fence
-  and the edges of beds and tree rings need the weed eater.
+  and the edges of the house, beds, patio and tree rings need the weed eater.
 - Light and dark stripes like a real lawn: mowing a line one way and back
   the other leaves alternating shades. Cut grass leaves short stubble and
   throws clippings, and tall grass sways in the breeze.
 - Thick grass of thin, varied blades, and a sky with fair-weather clouds.
 - Bright summer lighting with a warm sun, soft shadows, light haze and a
   ring of distant trees.
-- Photo textures: grass detail on the lawn, wood fence, sided houses with
+- Photo textures: grass detail on the lawn, wood fence boards, sided houses with
   shingled roofs and stone chimneys, mulch beds, stone edging, leafy trees,
   and a paver patio and concrete driveway.
 - Missed-patch highlight with H, switched on automatically at 95%.
@@ -167,7 +171,7 @@ The full plan is in the project's improvement plan document.
 | 4. Optimize and QA: fewer draw calls, quality presets, touch controls | Done |
 | 5. Release 1.0: credits, release checklist, rollback plan | Done |
 | 6. Realism pass: lighting, thicker grass, real stripes, photo textures | Done |
-| 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower, bigger yard, HUD | In progress |
+| 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower and bigger yard done; HUD next | In progress |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling

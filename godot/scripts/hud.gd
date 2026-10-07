@@ -164,6 +164,8 @@ func update_play(percent: float, remaining: int, mph_value: float, on_foot: bool
 ## Shows the lawn texture as a map. Positions are fractions (0..1) across it.
 func set_minimap(texture: Texture2D) -> void:
 	minimap.texture = texture
+	# Keep the yard's shape: 150 px tall, as wide as its proportions allow.
+	minimap.custom_minimum_size = Vector2(150.0 * texture.get_width() / texture.get_height(), 150.0)
 	minimap.visible = true
 
 
