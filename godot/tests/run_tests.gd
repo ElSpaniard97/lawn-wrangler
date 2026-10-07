@@ -200,7 +200,7 @@ func test_weed_eater_reaches_fence_strip_mower_cannot() -> void:
 	var mower: Mower = yard.mower
 	var lawn: LawnGrid = yard.lawn
 	# Scrape along the left fence for 3 s.
-	mower.global_position = Vector3(0.4, 0.05, 14.0)
+	mower.global_position = Vector3(0.4, 0.05, 35.0)
 	Input.action_press("accelerate")
 	await frames(180)
 	Input.action_release("accelerate")
@@ -387,7 +387,7 @@ func test_static_models_are_baked() -> void:
 	var yard := await new_yard()
 	var scenery_meshes: Array = yard.scenery.find_children("*", "MeshInstance3D", true, false)
 	check(scenery_meshes.size() == 1, "scenery is baked into one mesh (%d)" % scenery_meshes.size())
-	check(scenery_meshes[0].mesh.get_surface_count() < 40, "baked scenery has one surface per material")
+	check(scenery_meshes[0].mesh.get_surface_count() < 40, "baked scenery has one surface per material (%d)" % scenery_meshes[0].mesh.get_surface_count())
 	var all: Array = yard.find_children("*", "MeshInstance3D", true, false)
 	check(all.size() < 30, "few mesh instances left to draw (%d)" % all.size())
 	check(yard.mower.wheels[0].get_child_count() == 1, "each wheel is baked but still spins on its own")

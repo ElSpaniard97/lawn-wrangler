@@ -48,6 +48,14 @@ func block_circle(center_x: float, center_z: float, radius: float) -> void:
 				cells[z * columns + x] = BLOCKED
 
 
+## Blocks every cell whose centre falls inside a rectangle (x, z in metres).
+func block_rect(rect: Rect2) -> void:
+	for z in rows:
+		for x in columns:
+			if rect.has_point(Vector2((x + 0.5) * cell_size, (z + 0.5) * cell_size)):
+				cells[z * columns + x] = BLOCKED
+
+
 ## Counts the cells that can be cut. Blocked cells never count toward 100%.
 func seal_layout() -> void:
 	total = 0
