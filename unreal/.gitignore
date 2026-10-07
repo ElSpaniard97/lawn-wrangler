@@ -1,0 +1,11 @@
+# Unreal generates these; they never belong in git.
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vs/
+.vscode/
+.idea/
+*.sln
+*.xcworkspace

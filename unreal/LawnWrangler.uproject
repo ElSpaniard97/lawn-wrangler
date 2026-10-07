@@ -1,0 +1,14 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.7",
+	"Category": "",
+	"Description": "Lawn Wrangler: ride a mower, trim the edges with a weed eater, and cut 99% of the grass.",
+	"Modules": [
+		{
+			"Name": "LawnWrangler",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": []
+}

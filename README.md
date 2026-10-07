@@ -103,6 +103,15 @@ the on-screen buttons instead: arrows to steer, GO and BACK to drive or
 walk, and HOP, BLADES, FIND, SOUND, PAUSE and RESTART. A browser with
 WebGL 2 is required.
 
+## Unreal Engine 5 version
+
+An Unreal Engine 5 version is being built in [`unreal/`](unreal/README.md),
+alongside this one, for a more photo-real look. The gameplay is already
+ported to C++; the art and the level are built in the Unreal editor. It is
+for downloads only, because Unreal cannot export to the web, so the Godot
+version stays the one you play in the browser. See
+[unreal/README.md](unreal/README.md) for setup.
+
 ## Work on the game
 
 Install [Godot 4.7.2-stable](https://godotengine.org/download/archive/4.7.2-stable/)
@@ -192,6 +201,7 @@ The full plan is in the project's improvement plan document.
 | 5. Release 1.0: credits, release checklist, rollback plan | Done |
 | 6. Realism pass: lighting, thicker grass, real stripes, photo textures | Done |
 | 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower, bigger yard, HUD with fuel and gamepad | Done |
+| 8. Unreal Engine 5 version alongside Godot: gameplay ported to C++ (done), level and art in the editor (next) | In progress |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling
