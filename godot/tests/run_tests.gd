@@ -39,6 +39,9 @@ func _initialize() -> void:
 	await test_restart_starts_a_fresh_yard()
 	await test_blocked_storage_still_finishes()
 	await test_resize_keeps_touch_buttons_on_screen()
+	await test_objectives_tick_off_by_yard()
+	await test_fuel_runs_out_and_refills_at_the_can()
+	await test_gamepad_drives_and_swaps_prompts()
 	_remove_test_save()
 	Models._materials.clear()
 	print("%s: %d failure(s)" % ["FAILED" if failures else "OK", failures])
@@ -526,3 +529,67 @@ func test_back_and_forth_passes_alternate_stripes() -> void:
 	var view := LawnView.new()
 	check(view._cut_data(LawnGrid.STRIPE_A).g > view._cut_data(LawnGrid.STRIPE_B).g, "stubble on a light stripe is drawn lighter")
 	view.free()
+
+
+func test_objectives_tick_off_by_yard() -> void:
+	var yard := await new_yard()
+	var lawn: LawnGrid = yard.lawn
+	var goals: Objectives = yard.objectives
+	for goal in 4:
+		check(goals.totals[goal] > 0 and not goals.done(goal), "%s starts unticked" % Objectives.NAMES[goal])
+	# Cut every cell in front of the house (z past 25 m).
+	for z in range(int(25.0 / lawn.cell_size) + 1, lawn.rows):
+		for x in lawn.columns:
+			lawn.cut_at(Vector3((x + 0.5) * lawn.cell_size, 0, (z + 0.5) * lawn.cell_size), 0.05, LawnGrid.STRIPE_A)
+	# The checklist updates once per drawn frame, not per physics step.
+	await process_frame
+	await process_frame
+	check(goals.done(Objectives.FRONT), "cutting the front yard ticks it off")
+	check(not goals.done(Objectives.SIDE) and not goals.done(Objectives.BACK), "the other yards stay unticked")
+	check(yard.hud.objectives_done[Objectives.FRONT] and not yard.hud.objectives_done[Objectives.BACK], "the checklist on screen matches")
+	await end_yard(yard)
+
+
+func test_fuel_runs_out_and_refills_at_the_can() -> void:
+	var yard := await new_yard()
+	var mower: Mower = yard.mower
+	var start_fuel := mower.fuel
+	Input.action_press("accelerate")
+	await frames(120)
+	check(mower.fuel < start_fuel, "driving burns fuel")
+	mower.fuel = 0.0
+	await frames(90)
+	check(mower.measured_speed < mower.max_speed * Mower.FUMES_SPEED + 0.1, "an empty tank only crawls (%.2f)" % mower.measured_speed)
+	check(mower.measured_speed > 0.3, "but still moves on fumes")
+	check(yard.hud.message_label.text.contains("Out of gas"), "out of gas warning shows")
+	Input.action_release("accelerate")
+	mower.global_position = Vector3(15.6, 0.05, 16.6)
+	await frames(60)
+	check(mower.fuel > 0.2, "the gas can refills the tank (%.2f)" % mower.fuel)
+	check(yard.hud.fuel == mower.fuel, "fuel gauge shows the tank")
+	await end_yard(yard)
+
+
+func test_gamepad_drives_and_swaps_prompts() -> void:
+	var yard := await new_yard()
+	for action in ["accelerate", "reverse", "steer_left", "steer_right", "toggle_blades", "hop", "pause"]:
+		var has_pad := InputMap.action_get_events(action).any(func(e): return e is InputEventJoypadButton or e is InputEventJoypadMotion)
+		check(has_pad, "%s works on a gamepad" % action)
+	var trigger := InputEventJoypadMotion.new()
+	trigger.axis = JOY_AXIS_TRIGGER_RIGHT
+	trigger.axis_value = 1.0
+	Input.parse_input_event(trigger)
+	await frames(60)
+	check(yard.mower.measured_speed > 1.0, "right trigger drives the mower")
+	check(yard.hud.gamepad, "prompts switch to the gamepad")
+	var first: Label = yard.hud.prompts.get_child(0).get_child(0).get_child(0).get_child(0)
+	check(first.text == "RT", "first prompt is the right trigger")
+	trigger.axis_value = 0.0
+	Input.parse_input_event(trigger)
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_H
+	key.pressed = true
+	Input.parse_input_event(key)
+	await frames(2)
+	check(not yard.hud.gamepad, "a key press switches the prompts back")
+	await end_yard(yard)

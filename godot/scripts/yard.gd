@@ -24,6 +24,12 @@ const SHRUB_BEDS := [Rect2(10.0, 13.0, 1.5, 2.8), Rect2(10.0, 22.2, 1.5, 2.8),
 ## Paver patio under the pergola, in the back right corner.
 const PATIO := Rect2(21.5, 0.0, 8.5, 7.5)
 const START := Vector3(16.0, 0.05, 30.5)
+## The red gas can on the landing by the porch steps (x, z).
+const GAS_CAN := Vector2(13.5, 16.6)
+const REFUEL_DISTANCE := 2.5
+## Share of a full tank poured in per second at the gas can.
+const REFUEL_RATE := 0.35
+const LOW_FUEL := 0.2
 const WIN_PERCENT := 99.0
 const MPS_TO_MPH := 2.237
 const REMOUNT_DISTANCE := 1.8
@@ -53,6 +59,10 @@ var settings: Settings
 var touch: TouchControls
 var on_mower := true
 var auto_highlighted := false
+var objectives: Objectives
+## Which fuel warning was last shown: 0 none, 1 low, 2 empty.
+var fuel_warning := 0
+var refuelling := false
 
 
 func _ready() -> void:
@@ -80,6 +90,8 @@ func _ready() -> void:
 	for bed in SHRUB_BEDS:
 		lawn.block_rect(bed)
 	lawn.seal_layout()
+	objectives = Objectives.new()
+	objectives.setup(lawn, HOUSE_CENTER.y - HOUSE_SIZE.y / 2.0, HOUSE_CENTER.y + HOUSE_SIZE.y / 2.0)
 
 	view = LawnView.new()
 	view.blades = LawnView.RICH_BLADES if rich_graphics else LawnView.BLADES
@@ -98,6 +110,7 @@ func _ready() -> void:
 	for bed in SHRUB_BEDS:
 		_build_shrub_bed(bed)
 	_build_pergola(PATIO)
+	_build_gas_can(Vector3(GAS_CAN.x, 0, GAS_CAN.y))
 	_build_scenery()
 	Models.bake(scenery)
 
@@ -128,16 +141,19 @@ func _ready() -> void:
 	add_child(touch)
 	if DisplayServer.is_touchscreen_available():
 		show_touch_controls()
-	hud.set_minimap(view.texture)
+	hud.set_minimap(view.texture, Rect2((HOUSE_CENTER - HOUSE_SIZE / 2.0) / LOT, HOUSE_SIZE / LOT))
+	if not Input.get_connected_joypads().is_empty():
+		hud.use_gamepad(true)
 	sounds = Sounds.new()
 	sounds.name = "Sounds"
 	sounds.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(sounds)
 	run.finished_run.connect(_on_finished)
-	hud.say("Mow the open lawn, then %s to hop off and trim the edges." % ("tap Hop" if touch.visible else "press Space"), 5.0)
+	var hop := "tap Hop" if touch.visible else ("press Y" if hud.gamepad else "press Space")
+	hud.say("Mow the open lawn, then %s to hop off and trim the edges." % hop, 5.0)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var percent := lawn.percent_cut()
 	if percent >= WIN_PERCENT and not run.finished:
 		run.finish_run()
@@ -149,12 +165,40 @@ func _process(_delta: float) -> void:
 	var speed := mower.measured_speed if on_mower else walker.measured_speed
 	hud.update_play(percent, lawn.total - lawn.cut_count, speed * MPS_TO_MPH, not on_mower,
 		mower.blades_on, run.elapsed, run.best)
+	hud.update_objectives(objectives.states())
+	_update_fuel(delta)
 	var heading := -mower.global_rotation.y
 	hud.update_minimap(map_point(mower.global_position), heading,
 		Vector2(-1, -1) if on_mower else map_point(walker.global_position))
 	var top_speed := mower.max_speed if on_mower else walker.walk_speed
 	var cutting := mower.clippings.emitting or walker.clippings.emitting
 	sounds.update(on_mower, clampf(speed / top_speed, 0.0, 1.0), mower.blades_on, cutting, not run.finished)
+
+
+## Burns and refills fuel and warns when the tank runs low or dry. Driving
+## the mower, or walking the weed eater, up to the gas can fills it up.
+func _update_fuel(delta: float) -> void:
+	var can := Vector3(GAS_CAN.x, 0, GAS_CAN.y)
+	var helper: Node3D = mower if on_mower else walker
+	var near := Vector2(helper.global_position.x - can.x, helper.global_position.z - can.z).length() < REFUEL_DISTANCE
+	if near and mower.fuel < 1.0 and not run.finished:
+		mower.refuel(REFUEL_RATE * delta)
+		if not refuelling:
+			hud.say("Filling up the tank...", 2.0)
+		refuelling = true
+		if mower.fuel >= 1.0:
+			hud.say("Tank full!", 1.5)
+	else:
+		refuelling = false
+	if mower.fuel > 0.5:
+		fuel_warning = 0
+	elif mower.fuel <= 0.0 and fuel_warning < 2:
+		fuel_warning = 2
+		hud.say("Out of gas! Crawl over to the red gas can by the porch steps.", 5.0)
+	elif mower.fuel < LOW_FUEL and fuel_warning < 1:
+		fuel_warning = 1
+		hud.say("Fuel is low. Top up at the red gas can by the porch steps.", 4.0)
+	hud.update_fuel(mower.fuel)
 
 
 ## Where a spot in the yard falls on the minimap, as fractions across it.
@@ -172,6 +216,11 @@ func _input(event: InputEvent) -> void:
 	# A touch screen we did not detect up front still gets the buttons.
 	if event is InputEventScreenTouch and not touch.visible:
 		show_touch_controls()
+	# The prompts follow whichever was used last: gamepad or keyboard.
+	if event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf(event.axis_value) > 0.5):
+		hud.use_gamepad(true)
+	elif event is InputEventKey:
+		hud.use_gamepad(false)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -309,14 +358,37 @@ func _setup_input() -> void:
 		"pause": [KEY_P, KEY_ESCAPE],
 		"restart": [KEY_R],
 	}
+	# Gamepad: triggers drive, the left stick steers, face buttons for the rest.
+	var pad_axes := {
+		"accelerate": [JOY_AXIS_TRIGGER_RIGHT, 1.0],
+		"reverse": [JOY_AXIS_TRIGGER_LEFT, 1.0],
+		"steer_left": [JOY_AXIS_LEFT_X, -1.0],
+		"steer_right": [JOY_AXIS_LEFT_X, 1.0],
+	}
+	var pad_buttons := {
+		"toggle_blades": JOY_BUTTON_X,
+		"hop": JOY_BUTTON_Y,
+		"highlight": JOY_BUTTON_RIGHT_SHOULDER,
+		"pause": JOY_BUTTON_START,
+		"restart": JOY_BUTTON_BACK,
+	}
 	for action in keys:
 		if InputMap.has_action(action):
 			continue
-		InputMap.add_action(action)
+		InputMap.add_action(action, 0.2)
 		for key in keys[action]:
 			var event := InputEventKey.new()
 			event.physical_keycode = key
 			InputMap.action_add_event(action, event)
+		if pad_axes.has(action):
+			var motion := InputEventJoypadMotion.new()
+			motion.axis = pad_axes[action][0]
+			motion.axis_value = pad_axes[action][1]
+			InputMap.action_add_event(action, motion)
+		if pad_buttons.has(action):
+			var button := InputEventJoypadButton.new()
+			button.button_index = pad_buttons[action]
+			InputMap.action_add_event(action, button)
 
 
 func _build_environment() -> void:
@@ -783,6 +855,16 @@ func _build_porch(house: Node3D, door: Vector3, half_width: float, roof_color: C
 		var pot := door + Vector3(side * 1.0, floor_y, 0.5)
 		Models.add_cylinder(house, 0.2, 0.4, pot + Vector3(0, 0.2, 0), _material(Color(0.25, 0.22, 0.2), 0.8))
 		Models.add_sphere(house, 0.3, pot + Vector3(0, 0.6, 0), leaves, 0.9)
+
+
+## A red jerry can with a handle and spout, for topping up the mower.
+func _build_gas_can(at: Vector3) -> void:
+	var red := _material(Color(0.75, 0.08, 0.06), 0.5)
+	var dark := _material(Color(0.25, 0.22, 0.2), 0.8)
+	Models.add_box(scenery, Vector3(0.34, 0.42, 0.2), at + Vector3(0, 0.21 + 0.06, 0), red, Vector3(0, 30, 0))
+	Models.add_box(scenery, Vector3(0.22, 0.05, 0.05), at + Vector3(0, 0.52, 0), dark, Vector3(0, 30, 0))
+	Models.add_rod(scenery, at + Vector3(0.1, 0.48, -0.06), at + Vector3(0.22, 0.6, -0.13), 0.025, dark)
+	_add_block(Rect2(at.x - 0.25, at.z - 0.25, 0.5, 0.5), 0.6)
 
 
 ## The tint that turns a photo of average brightness `mean` into `color`.
