@@ -107,7 +107,9 @@ WebGL 2 is required.
 
 An Unreal Engine 5 version is being built in [`unreal/`](unreal/README.md),
 alongside this one, for a more photo-real look. The gameplay is already
-ported to C++; the art and the level are built in the Unreal editor. It is
+ported to C++, and the game sets up its own yard with simple stand-in
+shapes, so it plays as soon as it builds; photo-real art from Fab is added
+in the Unreal editor next. It is
 for downloads only, because Unreal cannot export to the web, so the Godot
 version stays the one you play in the browser. See
 [unreal/README.md](unreal/README.md) for setup.
@@ -201,7 +203,7 @@ The full plan is in the project's improvement plan document.
 | 5. Release 1.0: credits, release checklist, rollback plan | Done |
 | 6. Realism pass: lighting, thicker grass, real stripes, photo textures | Done |
 | 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower, bigger yard, HUD with fuel and gamepad | Done |
-| 8. Unreal Engine 5 version alongside Godot: gameplay ported to C++ (done), level and art in the editor (next) | In progress |
+| 8. Unreal Engine 5 version alongside Godot: gameplay ported to C++ (done), playable yard with stand-in shapes (done), Fab art in the editor (next) | In progress |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling

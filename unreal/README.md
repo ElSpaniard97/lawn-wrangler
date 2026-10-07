@@ -30,9 +30,14 @@ get it running:
   Space or Y to hop, P or Start to pause, R or Back to restart).
 - `Private/Tests`: automation tests for the grid and the checklist.
 
-What is left happens in the Unreal editor: the art (models, materials, the
-level) and a few Blueprints that point the code at that art. Unreal saves
-these as binary files that only the editor can make. The steps below walk
+- `LawnArt` and the stand-in shapes: until Fab art is added, the yard,
+  mower and landscaper are drawn from the engine's basic shapes, and the
+  game mode adds the yard, sun and sky to an empty level by itself, so the
+  game is playable straight after the first build.
+
+Making it look real happens in the Unreal editor: Fab models and
+materials, and a few Blueprints that point the code at them. Unreal saves
+these as binary files that only the editor can make. Section 4 walks
 through them.
 
 ## 1. Install (once)
@@ -62,15 +67,29 @@ You need about 100 GB of free disk space.
 3. If the build fails, copy the error text into our thread and I'll fix
    the code.
 
-## 3. Build the level
+## 3. Play
 
-1. Use **File > New Level > Basic** and save it as `Content/Maps/Yard`. The
-   project already opens this map by default. Delete the level's default
-   floor; the yard brings its own ground.
+Press **Play** in the toolbar. There is nothing to set up first: the
+project opens the engine's empty level, and the game mode fills it with the
+yard, the sun and the sky. Until real art is added, everything is drawn
+with simple shapes: an orange mower with its driver, a carpet of grass
+tiles that turns into light and dark stripes as you mow, the fence, the
+house and porch, shrub beds, trees, flower beds and the patio. Click in the
+game window, then drive with W/S and A/D (or a gamepad).
+
+## 4. Swap in real art (optional)
+
+When you want it to look like the reference picture, add art from Fab and
+point the code at it:
+
+1. **Your own level:** use **File > New Level > Basic** and save it as
+   `Content/Maps/Yard`. Delete its default floor; the yard brings its own
+   ground. Then, in **Edit > Project Settings > Maps & Modes**, set both
+   default maps to `Yard`.
 2. **The yard Blueprint:** in the Content Browser, choose **Add > Blueprint
    Class**, open **All Classes**, search for **LawnYard**, and name the new
    Blueprint `BP_Yard`. Drag it into the level and set its location to
-   **0, 0, 0**.
+   **0, 0, 0**. A level with its own yard keeps it; no second one is made.
 3. **Grass:** open **Window > Fab**, search for a free Megascans grass
    clump, and add it to the project. In `BP_Yard`, set **Grass Mesh** to
    that mesh.
@@ -86,22 +105,21 @@ You need about 100 GB of free disk space.
    in `BP_Yard`, set **Ground Material** to `M_Lawn`. If the stripes come
    out turned sideways, swap the U and V inputs of the texture sample.
 5. **Mower:** make a Blueprint from **LawnMower** called `BP_Mower`. Set its
-   **Body** mesh to a mower model; Fab has riding mowers, and a stretched
-   cube works to start with. The front of the model must point along +X
-   (the red arrow). In `BP_Yard`, set **Mower Class** to `BP_Mower`.
+   **Body** mesh to a mower model from Fab; the stand-in shapes hide
+   themselves once Body has a different mesh. The front of the model must
+   point along +X (the red arrow). In `BP_Yard`, set **Mower Class** to
+   `BP_Mower`.
 6. **Landscaper:** make a Blueprint from **LawnWalker** called `BP_Walker`.
    For its **Body**, use the Unreal mannequin (**Add > Add Feature or
    Content Pack > Third Person** adds it) or a MetaHuman. In `BP_Yard`, set
    **Walker Class** to `BP_Walker`.
-7. **Game mode:** this is already set in `Config/DefaultEngine.ini`. If the
-   level uses a different one, open **World Settings** and set **GameMode
-   Override** to **LawnGameMode**.
-8. Press **Play**. You should be able to drive and mow, see the stripes,
-   hop off, trim and finish.
+7. Once the level has real houses, fences and plants, untick **Stand In
+   Art** in `BP_Yard`. If the level has its own sun, the yard does not add
+   one.
 
-## 4. Dress the yard
+## 5. Where things go
 
-The colliders and blocked grass are already in place, so put the art where
+The colliders and blocked grass are already in place, so put real art where
 they are. Positions are in centimetres from the yard's back-left corner.
 **X** runs across the yard and **Y** runs from the back fence (Y = 0)
 towards the street (Y = 3600).
@@ -123,12 +141,12 @@ and an **Exponential Height Fog** outside the fence finish the picture.
 Lumen and virtual shadows are already switched on in
 `Config/DefaultEngine.ini`.
 
-## 5. Tests
+## 6. Tests
 
 Open **Tools > Session Frontend > Automation**, type `LawnWrangler` in the
 filter, tick the tests and click **Start Tests**.
 
-## 6. Make a download
+## 7. Make a download
 
 Use **Platforms > Mac** (or **Windows**) **> Package Project**. The packaged
 game is several hundred MB. Before handing it to anyone, read the signing

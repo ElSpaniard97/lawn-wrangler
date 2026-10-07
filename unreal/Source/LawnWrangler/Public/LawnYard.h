@@ -7,7 +7,7 @@
 
 class ALawnMower;
 class ALawnWalker;
-class UHierarchicalInstancedStaticMeshComponent;
+class UInstancedStaticMeshComponent;
 class ULawnGridComponent;
 class UMaterialInstanceDynamic;
 class UMaterialInterface;
@@ -23,9 +23,11 @@ class UStaticMeshComponent;
  *
  * This actor owns the lawn grid, the grass, the invisible colliders for the
  * layout below, fuel and the gas can, the checklist, the timer and the best
- * time. Place one BP_Yard (a Blueprint child) in the level with its corner
- * at the world origin, then dress the level with houses, plants and fences
- * at the positions listed in unreal/README.md.
+ * time. The game mode spawns one at the world origin when the level has
+ * none, and until real art is added it draws the yard, the sky and the sun
+ * itself from the engine's basic shapes. To dress it with Fab art, place a
+ * BP_Yard (a Blueprint child) at the origin instead, turn off Stand In Art
+ * and put the models at the positions listed in unreal/README.md.
  */
 UCLASS()
 class LAWNWRANGLER_API ALawnYard : public AActor
@@ -48,7 +50,14 @@ public:
 
 	/** One grass clump per cell; cut clumps shrink to stubble. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Yard")
-	TObjectPtr<UHierarchicalInstancedStaticMeshComponent> Grass;
+	TObjectPtr<UInstancedStaticMeshComponent> Grass;
+
+	/** Without a GrassMesh, cut cells show as short light or dark tiles from these, making the stripes. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Yard")
+	TObjectPtr<UInstancedStaticMeshComponent> CutGrassA;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Yard")
+	TObjectPtr<UInstancedStaticMeshComponent> CutGrassB;
 
 	/** The lawn's ground, coloured by GroundMaterial from the cut mask. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Yard")
@@ -61,6 +70,14 @@ public:
 	/** A material with a Texture parameter named CutMask (see README). */
 	UPROPERTY(EditAnywhere, Category = "Yard|Art")
 	TObjectPtr<UMaterialInterface> GroundMaterial;
+
+	/** Draws the fence, house, porch, beds, trees and patio from basic shapes. Turn off once real art is placed. */
+	UPROPERTY(EditAnywhere, Category = "Yard|Art")
+	bool bStandInArt = true;
+
+	/** Adds a sun, sky, sky light and haze when the level has no sun of its own. */
+	UPROPERTY(EditAnywhere, Category = "Yard|Art")
+	bool bAddSkyIfMissing = true;
 
 	UPROPERTY(EditAnywhere, Category = "Yard|Pawns")
 	TSubclassOf<ALawnMower> MowerClass;
@@ -109,6 +126,9 @@ private:
 	void AddBlock(const FBox2D& Rect, float Height, bool bBlockGrass = true);
 	void AddRound(const FVector2D& Center, float Radius, float Height);
 	void PlantGrass();
+	void BuildStandInArt();
+	void BuildSky();
+	UStaticMeshComponent* Shape(UStaticMesh* Mesh, uint32 Color, const FVector& Center, const FVector& Size, const FRotator& Rotation = FRotator::ZeroRotator);
 	void SpawnPawns();
 	void UpdateFuel(float DeltaTime);
 	void Finish();
@@ -118,6 +138,21 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> GroundInstance;
+
+	UPROPERTY()
+	TObjectPtr<UStaticMesh> CubeMesh;
+
+	UPROPERTY()
+	TObjectPtr<UStaticMesh> CylinderMesh;
+
+	UPROPERTY()
+	TObjectPtr<UStaticMesh> SphereMesh;
+
+	UPROPERTY()
+	TObjectPtr<UMaterialInterface> ShapeMaterial;
+
+	/** True when the grass is drawn as tiles (no GrassMesh), so cutting swaps tiles. */
+	bool bTileGrass = false;
 
 	/** Grass instance index for each cell, or INDEX_NONE where blocked. */
 	TArray<int32> GrassIndex;

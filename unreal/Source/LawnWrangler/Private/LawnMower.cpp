@@ -4,8 +4,12 @@
 #include "Components/BoxComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "LawnArt.h"
 #include "LawnGridComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "UObject/ConstructorHelpers.h"
 #include "LawnYard.h"
 #include "EngineUtils.h"
 
@@ -18,10 +22,41 @@ ALawnMower::ALawnMower()
 	Collision->SetCollisionProfileName(TEXT("Pawn"));
 	RootComponent = Collision;
 
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(LawnArt::CubePath);
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(LawnArt::CylinderPath);
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(LawnArt::SpherePath);
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Shape(LawnArt::MaterialPath);
+	StandInBody = Cube.Object;
+	ShapeMaterial = Shape.Object;
+
+	// The stand-in deck. The collision box runs from 1 cm to 81 cm above the
+	// ground, so its centre is 40 cm up and the ground is at Z = -40 here.
 	Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
 	Body->SetupAttachment(Collision);
-	Body->SetRelativeLocation(FVector(0.f, 0.f, -40.f));
+	Body->SetStaticMesh(StandInBody);
+	Body->SetRelativeLocation(FVector(5.f, 0.f, -12.f));
+	Body->SetRelativeScale3D(FVector(1.5f, 1.1f, 0.3f));
 	Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	const FRotator Axle(0.f, 0.f, 90.f); // the cylinder's axis turned to point sideways
+	const FLinearColor Tyre = LawnArt::Hex(0x1c1c1c);
+	auto Part = [&](const TCHAR* Name, UStaticMesh* Mesh, const FVector& At, const FVector& Size, const FLinearColor& Color, const FRotator& Turn = FRotator::ZeroRotator)
+	{
+		StandInParts.Add(LawnArt::AddPart(this, Collision, Name, Mesh, At, Size, Turn));
+		StandInColors.Add(Color);
+	};
+	Part(TEXT("RearWheelL"), Cylinder.Object, FVector(-45.f, -62.f, -17.f), FVector(46.f, 46.f, 22.f), Tyre, Axle);
+	Part(TEXT("RearWheelR"), Cylinder.Object, FVector(-45.f, 62.f, -17.f), FVector(46.f, 46.f, 22.f), Tyre, Axle);
+	Part(TEXT("CasterL"), Cylinder.Object, FVector(62.f, -45.f, -28.f), FVector(24.f, 24.f, 10.f), Tyre, Axle);
+	Part(TEXT("CasterR"), Cylinder.Object, FVector(62.f, 45.f, -28.f), FVector(24.f, 24.f, 10.f), Tyre, Axle);
+	Part(TEXT("Seat"), Cube.Object, FVector(-25.f, 0.f, 10.f), FVector(45.f, 55.f, 14.f), Tyre);
+	Part(TEXT("SeatBack"), Cube.Object, FVector(-50.f, 0.f, 32.f), FVector(10.f, 55.f, 40.f), Tyre);
+	Part(TEXT("LapBarL"), Cube.Object, FVector(10.f, -30.f, 30.f), FVector(40.f, 5.f, 5.f), LawnArt::Hex(0x777777));
+	Part(TEXT("LapBarR"), Cube.Object, FVector(10.f, 30.f, 30.f), FVector(40.f, 5.f, 5.f), LawnArt::Hex(0x777777));
+	Part(TEXT("Legs"), Cube.Object, FVector(0.f, 0.f, 22.f), FVector(40.f, 34.f, 14.f), LawnArt::Hex(0x3b4a63));
+	Part(TEXT("Torso"), Cylinder.Object, FVector(-25.f, 0.f, 50.f), FVector(38.f, 44.f, 55.f), LawnArt::Hex(0x4f7d3a));
+	Part(TEXT("Head"), Sphere.Object, FVector(-25.f, 0.f, 92.f), FVector(24.f, 24.f, 26.f), LawnArt::Hex(0xc68a64));
+	Part(TEXT("Cap"), Sphere.Object, FVector(-25.f, 0.f, 101.f), FVector(26.f, 26.f, 12.f), LawnArt::Hex(0xd23a2a));
 
 	// Chase camera: low behind the driver, like the reference picture.
 	CameraArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraArm"));
@@ -37,6 +72,27 @@ ALawnMower::ALawnMower()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(CameraArm);
 	Camera->FieldOfView = 62.f;
+}
+
+void ALawnMower::BeginPlay()
+{
+	Super::BeginPlay();
+	const bool bStandIn = Body->GetStaticMesh() == StandInBody;
+	if (bStandIn)
+	{
+		LawnArt::Paint(Body, ShapeMaterial, LawnArt::Hex(0xe8681c));
+	}
+	for (int32 I = 0; I < StandInParts.Num(); ++I)
+	{
+		if (bStandIn)
+		{
+			LawnArt::Paint(StandInParts[I], ShapeMaterial, StandInColors[I]);
+		}
+		else
+		{
+			StandInParts[I]->SetVisibility(false);
+		}
+	}
 }
 
 void ALawnMower::Tick(float DeltaTime)
