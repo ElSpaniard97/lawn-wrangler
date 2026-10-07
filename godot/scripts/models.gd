@@ -4,11 +4,12 @@ class_name Models
 ## Scenery surfaces can use the photo textures in res://textures (listed in
 ## ASSET_LICENSES.md); no outside model files are loaded.
 
-const SHIRT := Color(0.24, 0.27, 0.31)
-const PANTS := Color(0.26, 0.30, 0.38)
+const SHIRT := Color(0.29, 0.29, 0.31)
+const PANTS := Color(0.20, 0.27, 0.40)
+const CAP := Color(0.42, 0.39, 0.33)
 const SKIN := Color(0.80, 0.60, 0.46)
 const DARK := Color(0.10, 0.10, 0.11)
-const SAFETY := Color(0.86, 0.20, 0.12)
+const SAFETY := Color(0.95, 0.40, 0.06)
 const ORANGE := Color(0.95, 0.35, 0.05)
 
 static var _materials := {}
@@ -159,9 +160,10 @@ static func bake(root: Node3D, skip: Array = []) -> MeshInstance3D:
 	return baked
 
 
-## The landscaper, facing -Z with feet at the origin: boots, work pants,
-## t-shirt, arms, cap and red ear protection. Legs and arms hang from pivot
-## nodes named LeftLeg, RightLeg, LeftArm and RightArm so they can swing.
+## The landscaper, facing -Z with feet at the origin: boots, jeans, a gray
+## t-shirt, arms, a cap and ear protection (dark cups with an orange badge).
+## Legs and arms hang from pivot nodes named LeftLeg, RightLeg, LeftArm and
+## RightArm so they can swing.
 ## Seated bends the legs forward and reaches the arms to the lap bars.
 static func person(seated: bool) -> Node3D:
 	var root := Node3D.new()
@@ -206,18 +208,19 @@ static func person(seated: bool) -> Node3D:
 	crown.radius = 0.132
 	crown.height = 0.132
 	crown.is_hemisphere = true
-	crown.material = dark
+	crown.material = material(CAP, 0.85)
 	add_mesh(root, crown, Vector3(0, head_y + 0.03, 0))
-	add_box(root, Vector3(0.2, 0.02, 0.13), Vector3(0, head_y + 0.035, -0.17), dark)
+	add_box(root, Vector3(0.2, 0.02, 0.13), Vector3(0, head_y + 0.035, -0.17), material(CAP, 0.85))
 	# Ear protection: two cups and a band over the cap.
 	for side in [-1, 1]:
-		add_cylinder(root, 0.065, 0.06, Vector3(0.14 * side, head_y, 0.01), safety, Vector3(0, 0, 90))
+		add_cylinder(root, 0.07, 0.07, Vector3(0.145 * side, head_y, 0.01), dark, Vector3(0, 0, 90))
+		add_cylinder(root, 0.05, 0.02, Vector3(0.185 * side, head_y, 0.01), safety, Vector3(0, 0, 90))
 	var band := TorusMesh.new()
 	band.inner_radius = 0.135
 	band.outer_radius = 0.155
 	band.rings = 16
 	band.ring_segments = 6
-	band.material = safety
+	band.material = dark
 	add_mesh(root, band, Vector3(0, head_y + 0.02, 0.01), Vector3(0, 0, 90))
 
 	if seated:

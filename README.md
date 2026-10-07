@@ -34,8 +34,10 @@ Forward+ falls back to the same renderer as the web version.
 
 ## Features
 
-- A zero-turn style riding mower with a chase camera, and a landscaper who
-  walks with a weed eater.
+- A commercial-style zero-turn mower with a wide orange deck, big treaded
+  drive tires and the engine behind the seat, followed by a chase camera,
+  and a landscaper in a gray tee, cap and ear protection who walks with a
+  weed eater.
 - A dressed yard: houses next door, a picket fence with posts and rails,
   shade trees and pines, and flower beds edged with stones.
 - Engine, blade, weed eater and grass rustle sounds, and a chime when you
