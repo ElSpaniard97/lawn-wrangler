@@ -6,8 +6,8 @@ extends Node3D
 @export var target: Node3D
 @export var follow_speed := 6.0
 @export var turn_speed := 3.0
-@export var distance := 4.5
-@export var pitch_degrees := -20.0
+@export var distance := 3.8
+@export var pitch_degrees := -15.0
 
 var arm: SpringArm3D
 var camera: Camera3D
@@ -19,10 +19,10 @@ func _ready() -> void:
 	arm.spring_length = distance
 	arm.margin = 0.2
 	arm.rotation.x = deg_to_rad(pitch_degrees)
-	arm.position.y = 1.4
+	arm.position.y = 1.5
 	add_child(arm)
 	camera = Camera3D.new()
-	camera.fov = 65.0
+	camera.fov = 62.0
 	camera.current = true
 	arm.add_child(camera)
 	if target:
