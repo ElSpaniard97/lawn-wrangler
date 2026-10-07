@@ -17,6 +17,11 @@ instead of opening a public issue.
 - Godot and its web export template are downloaded from the official release
   and checked against pinned SHA-512 sums before every build.
 - Tests must pass before the site builds and deploys.
+- The desktop downloads are built by the same CI run, from the same
+  checksum-verified Godot, and published with their SHA-256 checksums in
+  `download/SHA256SUMS.txt`. They are not code-signed yet, so Windows and
+  macOS show a warning the first time; only download them from the game's
+  own page.
 - The landing page sets a Content Security Policy that only allows its own
   inline script and the game frame from this site.
 - The saved best time is plain JSON and is ignored unless it is a positive,

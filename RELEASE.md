@@ -31,7 +31,10 @@ Do these on a desktop browser and on a phone, after the deploy finishes:
 4. Finish the yard, reload the page, and check the best time is still there.
 5. Switch to another tab and back: the game is paused.
 6. Press Q (desktop) and check the quality changes and stays after a reload.
-7. In a private window, finish once more: the game should still finish and say
+7. Download the Windows, Mac and Linux builds from the game page, check
+   their checksums against `download/SHA256SUMS.txt`, and play a minute on
+   each: the game starts, Q cycles quality, and nothing looks broken.
+8. In a private window, finish once more: the game should still finish and say
    the record lasts this session if the browser blocks saving.
 
 ## Rollback

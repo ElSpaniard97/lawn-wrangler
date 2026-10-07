@@ -27,6 +27,13 @@ var floor_body: StaticBody3D
 ## Everything that never moves; baked into a few meshes once it is built.
 var scenery: Node3D
 var sun: DirectionalLight3D
+var environment: Environment
+## True in the desktop builds, which use Godot's Forward+ renderer and can
+## afford ambient occlusion, bounce light, glow and softer shadows. The web
+## build uses the Compatibility renderer and skips them, as does a desktop
+## that had to fall back to it, and the headless test runner (no GPU device).
+var rich_graphics := RenderingServer.get_current_rendering_method() == "forward_plus" \
+	and RenderingServer.get_rendering_device() != null
 var settings: Settings
 var touch: TouchControls
 var on_mower := true
@@ -53,6 +60,7 @@ func _ready() -> void:
 	lawn.seal_layout()
 
 	view = LawnView.new()
+	view.blades = LawnView.RICH_BLADES if rich_graphics else LawnView.BLADES
 	view.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(view)
 	view.build(lawn)
@@ -237,8 +245,28 @@ func apply_quality(level: String) -> void:
 	RenderingServer.directional_shadow_atlas_set_size(4096 if level == "high" else 2048, true)
 	viewport.msaa_3d = Viewport.MSAA_2X if level == "high" else Viewport.MSAA_DISABLED
 	viewport.scaling_3d_scale = 0.75 if level == "low" else 1.0
+	if rich_graphics:
+		_apply_rich_effects(level)
 	if hud:
 		hud.quality_name = Settings.LABELS[level]
+
+
+## Desktop only. Medium adds ambient occlusion (soft contact shadows under
+## the mower, trees and fence); High adds bounce light, a gentle glow and
+## shadows that soften with distance from what casts them.
+func _apply_rich_effects(level: String) -> void:
+	# Forward+ lights in linear space and comes out darker than the web build.
+	environment.tonemap_exposure = 1.25
+	environment.ssao_enabled = level != "low"
+	environment.ssao_radius = 1.2
+	environment.ssao_intensity = 1.6
+	environment.ssil_enabled = level == "high"
+	environment.ssil_intensity = 0.8
+	environment.glow_enabled = level == "high"
+	environment.glow_intensity = 0.25
+	environment.glow_bloom = 0.04
+	environment.glow_hdr_threshold = 1.2
+	sun.light_angular_distance = 0.6 if level == "high" else 0.0
 
 
 func _setup_input() -> void:
@@ -274,6 +302,7 @@ func _build_environment() -> void:
 	var sky := Sky.new()
 	sky.sky_material = sky_material
 	var env := Environment.new()
+	environment = env
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
