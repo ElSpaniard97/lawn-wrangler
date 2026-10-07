@@ -16,10 +16,10 @@ const BUTTONS := [
 	["reverse", "BACK", 52, 2, Vector2(-385, -85)],
 	["hop", "HOP", 45, 2, Vector2(-75, -225)],
 	["toggle_blades", "BLADES", 40, 2, Vector2(-75, -325)],
-	["pause", "PAUSE", 38, 0, Vector2(60, 185)],
-	["restart", "RESTART", 38, 0, Vector2(60, 275)],
-	["highlight", "FIND", 38, 0, Vector2(60, 365)],
-	["mute", "SOUND", 38, 0, Vector2(60, 455)],
+	["pause", "PAUSE", 38, 0, Vector2(60, 248)],
+	["restart", "RESTART", 38, 0, Vector2(60, 330)],
+	["highlight", "FIND", 38, 0, Vector2(60, 412)],
+	["mute", "SOUND", 38, 0, Vector2(60, 494)],
 ]
 ## Steering and driving keep working when a thumb slides onto them.
 const SLIDE_ON := ["steer_left", "steer_right", "accelerate", "reverse"]

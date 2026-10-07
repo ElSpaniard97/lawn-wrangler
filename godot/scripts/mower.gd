@@ -11,14 +11,21 @@ extends CharacterBody3D
 @export var braking := 6.0
 @export var turn_rate := 1.6
 @export var cut_radius := 0.4
+## How far a full tank goes with the blades on; with them off it goes twice
+## as far. An empty tank leaves the mower crawling home on fumes.
+@export var tank_metres := 1200.0
 
 const ORANGE := Color(0.95, 0.35, 0.05)
 const DARK := Color(0.12, 0.12, 0.13)
+## Share of full speed left on an empty tank.
+const FUMES_SPEED := 0.3
 
 var lawn: LawnGrid
 var driving := true
 var blades_on := true
 var speed := 0.0
+## Fuel left, from 0 (empty) to 1 (full).
+var fuel := 1.0
 ## Ground speed from actual movement, so a mower pushing a fence reads 0.
 var measured_speed := 0.0
 var blade_offset := Vector3(0, 0, -0.15)
@@ -44,6 +51,8 @@ func _physics_process(delta: float) -> void:
 	var throttle := Input.get_axis("reverse", "accelerate") if driving else 0.0
 	var steer := Input.get_axis("steer_left", "steer_right") if driving else 0.0
 	var target := throttle * (max_speed if throttle >= 0.0 else reverse_speed)
+	if fuel <= 0.0:
+		target *= FUMES_SPEED
 	var rate := acceleration if absf(target) > absf(speed) and signf(target) != -signf(speed) else braking
 	speed = move_toward(speed, target, rate * delta)
 
@@ -58,6 +67,8 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	var moved := global_position - before
 	measured_speed = Vector2(moved.x, moved.z).length() / delta if delta > 0.0 else 0.0
+	if driving:
+		fuel = maxf(0.0, fuel - measured_speed * delta / tank_metres * (1.0 if blades_on else 0.5))
 
 	for wheel in wheels:
 		wheel.rotate_object_local(Vector3.UP, -speed * delta / 0.2)
@@ -75,6 +86,11 @@ func _physics_process(delta: float) -> void:
 	else:
 		has_last_blade = false
 	clippings.emitting = newly_cut > 0
+
+
+## Tops the tank up by `amount` (a share of a full tank).
+func refuel(amount: float) -> void:
+	fuel = minf(1.0, fuel + amount)
 
 
 func toggle_blades() -> void:

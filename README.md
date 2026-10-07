@@ -46,7 +46,16 @@ Forward+ falls back to the same renderer as the web version.
   the rest.
 - Engine, blade, weed eater and grass rustle sounds, and a chime when you
   finish. M turns the sound off and on.
-- A minimap of the lawn showing what is cut and where you are.
+- A round minimap that follows the mower, showing what is cut, the house
+  roof and where the landscaper is standing.
+- An objectives checklist that ticks off the front, side and back yards and
+  the trimming around everything as you finish each one.
+- Fuel: the mower burns gas as it drives (less with the blades off). When
+  the tank runs low, drive or walk to the red gas can by the porch steps to
+  fill up; an empty tank only crawls.
+- Gamepad support: triggers drive, the left stick steers, and the on-screen
+  prompts switch between keyboard keys and gamepad buttons to match what
+  you last used.
 - The mower's blade is narrower than its body, so the strip along the fence
   and the edges of the house, beds, patio and tree rings need the weed eater.
 - Light and dark stripes like a real lawn: mowing a line one way and back
@@ -59,7 +68,8 @@ Forward+ falls back to the same renderer as the web version.
   shingled roofs and stone chimneys, mulch beds, stone edging, leafy trees,
   and a paver patio and concrete driveway.
 - Missed-patch highlight with H, switched on automatically at 95%.
-- Progress, patches left, speed, time and your best time on screen.
+- Progress, patches left, time and your best time on screen, and an arc
+  speedometer with a fuel gauge.
 - Pause with P / Esc, and an automatic pause when the game loses focus.
 - Best time saved in your browser.
 - Plays on phones and tablets with on-screen buttons that appear on touch
@@ -81,6 +91,10 @@ Forward+ falls back to the same renderer as the web version.
 | F3 | Show frame rate and draw calls |
 | P / Esc | Pause or resume |
 | R | Restart the yard |
+
+With a gamepad: RT accelerates, LT reverses, the left stick steers, X turns
+the blades on or off, Y hops off or on, RB finds missed grass, Start pauses
+and Back restarts.
 
 Click inside the game before using the keyboard. On a phone or tablet, tap
 the on-screen buttons instead: arrows to steer, GO and BACK to drive or
@@ -123,11 +137,15 @@ version and both sums there, and the version noted in `godot/project.godot`.
   grass clumps, and the missed-patch highlight.
 - `godot/shaders/grass.gdshader`: grass colour, breeze sway and highlight.
 - `godot/shaders/sky.gdshader`: the sky gradient, sun glow and clouds.
+- `godot/shaders/minimap.gdshader`: the round minimap window onto the lawn.
 - `godot/scripts/mower.gd`, `godot/scripts/walker.gd`: driving, walking and
   cutting.
 - `godot/scripts/chase_camera.gd`: camera that follows whoever you control.
 - `godot/scripts/run_state.gd`: timer, pause and the saved best time.
-- `godot/scripts/hud.gd`: on-screen panels, messages and the minimap.
+- `godot/scripts/hud.gd`: on-screen panels, messages, the round minimap,
+  the speedometer and fuel gauge, and the keyboard or gamepad prompts.
+- `godot/scripts/objectives.gd`: the front, side, back and trimming goals
+  on the checklist.
 - `godot/scripts/models.gd`: the landscaper, the walk cycle and the shared
   shape helpers the mower and scenery are built from.
 - `godot/scripts/sounds.gd`: synthesizes every sound when the yard loads.
@@ -171,7 +189,7 @@ The full plan is in the project's improvement plan document.
 | 4. Optimize and QA: fewer draw calls, quality presets, touch controls | Done |
 | 5. Release 1.0: credits, release checklist, rollback plan | Done |
 | 6. Realism pass: lighting, thicker grass, real stripes, photo textures | Done |
-| 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower and bigger yard done; HUD next | In progress |
+| 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower, bigger yard, HUD with fuel and gamepad | Done |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling
