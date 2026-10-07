@@ -25,6 +25,7 @@ GDScript, and played in the browser.
 - Light and dark stripes like a real lawn: mowing a line one way and back
   the other leaves alternating shades. Cut grass leaves short stubble and
   throws clippings, and tall grass sways in the breeze.
+- Thick grass of thin, varied blades, and a sky with fair-weather clouds.
 - Bright summer lighting with a warm sun, soft shadows, light haze and a
   ring of distant trees.
 - Photo textures: grass detail on the lawn, wood fence, sided houses with
@@ -93,6 +94,7 @@ version and both sums there, and the version noted in `godot/project.godot`.
 - `godot/scripts/lawn_view.gd`: draws the ground stripes and the chunked
   grass clumps, and the missed-patch highlight.
 - `godot/shaders/grass.gdshader`: grass colour, breeze sway and highlight.
+- `godot/shaders/sky.gdshader`: the sky gradient, sun glow and clouds.
 - `godot/scripts/mower.gd`, `godot/scripts/walker.gd`: driving, walking and
   cutting.
 - `godot/scripts/chase_camera.gd`: camera that follows whoever you control.
@@ -140,7 +142,8 @@ The full plan is in the project's improvement plan document.
 | 3. Visual slice: models, sound, landscaping, minimap (all built in code) | Done |
 | 4. Optimize and QA: fewer draw calls, quality presets, touch controls | Done |
 | 5. Release 1.0: credits, release checklist, rollback plan | Done |
-| 6. Realism pass: lighting, thicker grass, real stripes, photo textures | In progress |
+| 6. Realism pass: lighting, thicker grass, real stripes, photo textures | Done |
+| 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower, bigger yard, HUD | In progress |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling

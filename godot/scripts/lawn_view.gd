@@ -7,10 +7,11 @@ extends Node3D
 
 const CHUNK := 10 # cells per chunk side
 const TALL_COLOR := Color(0.13, 0.27, 0.06)
-const STRIPE_A_COLOR := Color(0.36, 0.56, 0.16)
-const STRIPE_B_COLOR := Color(0.19, 0.36, 0.08)
+const STRIPE_A_COLOR := Color(0.20, 0.40, 0.07)
+const STRIPE_B_COLOR := Color(0.10, 0.24, 0.04)
 const BLOCKED_COLOR := Color(0.30, 0.21, 0.14)
 const HIGHLIGHT_COLOR := Color(0.85, 0.68, 0.12)
+const BLADES := 18
 const STUBBLE_HEIGHT := 0.2 # fraction of full clump height left after a cut
 const TALL_DATA := Color(1, 0, 0, 0)
 const CUT_DATA := Color(0, 0, 0, 0) # dark stripe stubble
@@ -100,23 +101,26 @@ func _build_clumps(rng: RandomNumberGenerator) -> void:
 			add_child(instance)
 
 
-## Seven tapered blades (the shader shades them root to tip). Each blade is in the mesh twice,
-## once per winding, both with an upward normal, so it is lit from either
-## side instead of going dark on its back face.
+## Eighteen thin blades scattered over the cell, each a single tapered
+## triangle drawn from both sides (the shader turns off back-face culling).
+## Normals point up so both faces light the same. UV.x carries a random
+## shade per blade so the clump is not one flat colour.
 func _clump_mesh() -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for blade in 7:
-		var angle := blade * TAU / 7.0 + 0.4 * (blade % 3)
-		var spread := Vector3(cos(angle * 1.7), 0, sin(angle * 1.7)) * 0.05 * (blade % 2)
-		var side := Vector3(cos(angle), 0, sin(angle)) * 0.025
-		var lean := Vector3(-sin(angle), 0, cos(angle)) * 0.06
-		var height := 0.22 + 0.04 * (blade % 3)
-		var points := [spread - side, spread + side, spread + Vector3(0, height, 0) + lean]
-		for order in [[0, 1, 2], [1, 0, 2]]:
-			for i in order:
-				st.set_normal(Vector3.UP)
-				st.add_vertex(points[i])
+	for blade in BLADES:
+		var root := Vector3(rng.randf_range(-0.14, 0.14), 0, rng.randf_range(-0.14, 0.14))
+		var facing := rng.randf() * TAU
+		var side := Vector3(cos(facing), 0, sin(facing)) * rng.randf_range(0.009, 0.015)
+		var lean := Vector3(-sin(facing), 0, cos(facing)) * rng.randf_range(-0.09, 0.09)
+		var height := rng.randf_range(0.2, 0.34)
+		var shade := rng.randf()
+		for point in [root - side, root + side, root + Vector3(0, height, 0) + lean]:
+			st.set_normal(Vector3.UP)
+			st.set_uv(Vector2(shade, 0))
+			st.add_vertex(point)
 	return st.commit()
 
 

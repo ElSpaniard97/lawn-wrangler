@@ -192,7 +192,7 @@ func toggle_mower() -> bool:
 		return false
 	walker.set_active(false)
 	mower.set_driving(true)
-	camera.follow(mower, 4.5)
+	camera.follow(mower, 3.8)
 	on_mower = true
 	hud.say("Back on the mower.")
 	return true
@@ -267,15 +267,10 @@ func _setup_input() -> void:
 
 
 func _build_environment() -> void:
-	# Bright summer afternoon: deep blue sky, warm low sun, a little haze so
+	# Bright summer afternoon: deep blue sky with clouds, warm low sun, a little haze so
 	# the distance fades instead of ending in a hard line.
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(0.18, 0.42, 0.85)
-	sky_material.sky_horizon_color = Color(0.68, 0.80, 0.92)
-	sky_material.sky_curve = 0.12
-	sky_material.ground_horizon_color = Color(0.45, 0.55, 0.40)
-	sky_material.ground_bottom_color = Color(0.20, 0.30, 0.15)
-	sky_material.sun_angle_max = 20.0
+	var sky_material := ShaderMaterial.new()
+	sky_material.shader = load("res://shaders/sky.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = sky_material
 	var env := Environment.new()
