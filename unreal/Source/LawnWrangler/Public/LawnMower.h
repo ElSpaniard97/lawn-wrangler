@@ -6,6 +6,8 @@
 
 class UBoxComponent;
 class UCameraComponent;
+class UMaterialInterface;
+class UStaticMesh;
 class USpringArmComponent;
 class UStaticMeshComponent;
 class ULawnGridComponent;
@@ -16,8 +18,8 @@ class ULawnGridComponent;
  * moving. The blade is narrower than the body, so the strip of grass right
  * against the fence and around beds is left for the weed eater.
  *
- * Give the Blueprint child (BP_Mower) a mower model on Body; everything
- * else works from code.
+ * Until a mower model is set on Body (in a Blueprint child), it is drawn
+ * from the engine's basic shapes: an orange deck, wheels, a seat and a driver.
  */
 UCLASS()
 class LAWNWRANGLER_API ALawnMower : public APawn
@@ -30,7 +32,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mower")
 	TObjectPtr<UBoxComponent> Collision;
 
-	/** The mower model. Assign a mesh in the Blueprint (for example a Fab zero-turn mower). */
+	/** The mower model: a stand-in box until a Blueprint child assigns a real mesh. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mower")
 	TObjectPtr<UStaticMeshComponent> Body;
 
@@ -98,12 +100,25 @@ public:
 	/** Moves and cuts for one frame. Public so tests can drive it directly. */
 	void Drive(float Throttle, float Steer, float DeltaTime);
 
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void UnPossessed() override;
 
 private:
+	UPROPERTY()
+	TObjectPtr<UStaticMesh> StandInBody;
+
+	UPROPERTY()
+	TObjectPtr<UMaterialInterface> ShapeMaterial;
+
+	/** Wheels, seat and driver drawn with basic shapes, hidden once Body has a real model. */
+	UPROPERTY()
+	TArray<TObjectPtr<UStaticMeshComponent>> StandInParts;
+
+	TArray<FLinearColor> StandInColors;
+
 	float Speed = 0.f;
 	float ThrottleInput = 0.f;
 	float SteerInput = 0.f;

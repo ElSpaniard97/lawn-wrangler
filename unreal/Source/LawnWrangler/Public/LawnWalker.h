@@ -8,6 +8,8 @@ class UCapsuleComponent;
 class UCameraComponent;
 class USpringArmComponent;
 class USkeletalMeshComponent;
+class UMaterialInterface;
+class UStaticMeshComponent;
 class ULawnGridComponent;
 
 /**
@@ -17,8 +19,9 @@ class ULawnGridComponent;
  * they are on foot, which is how you reach grass along the fence and around
  * beds.
  *
- * Give the Blueprint child (BP_Walker) a character model on Body, for
- * example a MetaHuman or the Unreal mannequin holding a trimmer.
+ * Until a Blueprint child gives Body a character model (a MetaHuman or the
+ * Unreal mannequin), the landscaper and the trimmer are drawn from the
+ * engine's basic shapes.
  */
 UCLASS()
 class LAWNWRANGLER_API ALawnWalker : public APawn
@@ -71,11 +74,21 @@ public:
 
 	FVector TipLocation() const;
 
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void UnPossessed() override;
 
 private:
+	UPROPERTY()
+	TObjectPtr<UMaterialInterface> ShapeMaterial;
+
+	/** Basic-shape body and trimmer, hidden once Body has a character model. */
+	UPROPERTY()
+	TArray<TObjectPtr<UStaticMeshComponent>> StandInParts;
+
+	TArray<FLinearColor> StandInColors;
+
 	float ThrottleInput = 0.f;
 	float SteerInput = 0.f;
 	FVector LastTip = FVector::ZeroVector;
