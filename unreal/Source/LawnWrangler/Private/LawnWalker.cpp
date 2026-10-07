@@ -96,10 +96,9 @@ void ALawnWalker::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	if (!Lawn)
 	{
-		for (TActorIterator<ALawnYard> It(GetWorld()); It; ++It)
+		if (TActorIterator<ALawnYard> It(GetWorld()); It)
 		{
 			Lawn = It->Lawn;
-			break;
 		}
 	}
 	if (IsPlayerControlled())
@@ -153,9 +152,8 @@ void ALawnWalker::UnPossessed()
 
 void ALawnWalker::OnHop()
 {
-	for (TActorIterator<ALawnYard> It(GetWorld()); It; ++It)
+	if (TActorIterator<ALawnYard> It(GetWorld()); It)
 	{
 		It->ToggleMower();
-		return;
 	}
 }

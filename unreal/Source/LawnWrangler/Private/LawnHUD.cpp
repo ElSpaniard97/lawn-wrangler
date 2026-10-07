@@ -65,10 +65,9 @@ void ALawnHUD::DrawHUD()
 	}
 	if (!Yard.IsValid())
 	{
-		for (TActorIterator<ALawnYard> It(GetWorld()); It; ++It)
+		if (TActorIterator<ALawnYard> It(GetWorld()); It)
 		{
 			Yard = *It;
-			break;
 		}
 	}
 	if (!Yard.IsValid())

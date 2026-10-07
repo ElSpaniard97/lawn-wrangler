@@ -100,10 +100,9 @@ void ALawnMower::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	if (!Lawn)
 	{
-		for (TActorIterator<ALawnYard> It(GetWorld()); It; ++It)
+		if (TActorIterator<ALawnYard> It(GetWorld()); It)
 		{
 			Lawn = It->Lawn;
-			break;
 		}
 	}
 	Drive(bDriving ? ThrottleInput : 0.f, bDriving ? SteerInput : 0.f, DeltaTime);
@@ -183,9 +182,8 @@ void ALawnMower::UnPossessed()
 
 void ALawnMower::OnHop()
 {
-	for (TActorIterator<ALawnYard> It(GetWorld()); It; ++It)
+	if (TActorIterator<ALawnYard> It(GetWorld()); It)
 	{
 		It->ToggleMower();
-		return;
 	}
 }

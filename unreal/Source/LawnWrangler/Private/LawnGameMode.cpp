@@ -17,10 +17,9 @@ ALawnGameMode::ALawnGameMode()
 void ALawnGameMode::StartPlay()
 {
 	bool bHasYard = false;
-	for (TActorIterator<ALawnYard> It(GetWorld()); It; ++It)
+	if (TActorIterator<ALawnYard> It(GetWorld()); It)
 	{
 		bHasYard = true;
-		break;
 	}
 	if (!bHasYard)
 	{
