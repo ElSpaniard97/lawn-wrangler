@@ -12,6 +12,8 @@ const STRIPE_B_COLOR := Color(0.10, 0.24, 0.04)
 const BLOCKED_COLOR := Color(0.30, 0.21, 0.14)
 const HIGHLIGHT_COLOR := Color(0.85, 0.68, 0.12)
 const BLADES := 18
+## Desktop builds draw thicker grass.
+const RICH_BLADES := 30
 const STUBBLE_HEIGHT := 0.2 # fraction of full clump height left after a cut
 const TALL_DATA := Color(1, 0, 0, 0)
 const CUT_DATA := Color(0, 0, 0, 0) # dark stripe stubble
@@ -28,6 +30,7 @@ var chunk_columns := 0
 var dirty := false
 var highlight := false
 var clump_material: ShaderMaterial
+var blades := BLADES
 
 
 func build(lawn: LawnGrid) -> void:
@@ -101,7 +104,7 @@ func _build_clumps(rng: RandomNumberGenerator) -> void:
 			add_child(instance)
 
 
-## Eighteen thin blades scattered over the cell, each a single tapered
+## Thin blades (18, or 30 on desktop) scattered over the cell, each a single tapered
 ## triangle drawn from both sides (the shader turns off back-face culling).
 ## Normals point up so both faces light the same. UV.x carries a random
 ## shade per blade so the clump is not one flat colour.
@@ -110,7 +113,7 @@ func _clump_mesh() -> ArrayMesh:
 	rng.seed = 3
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for blade in BLADES:
+	for blade in blades:
 		var root := Vector3(rng.randf_range(-0.14, 0.14), 0, rng.randf_range(-0.14, 0.14))
 		var facing := rng.randf() * TAU
 		var side := Vector3(cos(facing), 0, sin(facing)) * rng.randf_range(0.009, 0.015)

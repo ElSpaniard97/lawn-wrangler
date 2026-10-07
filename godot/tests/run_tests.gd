@@ -33,6 +33,7 @@ func _initialize() -> void:
 	await test_static_models_are_baked()
 	await test_photo_textures_are_local_and_listed()
 	await test_quality_presets_and_saved_settings()
+	await test_desktop_builds_get_richer_effects()
 	await test_touch_controls()
 	await test_lost_focus_pauses_with_pause_screen()
 	await test_restart_starts_a_fresh_yard()
@@ -391,6 +392,23 @@ func test_static_models_are_baked() -> void:
 	check(all.size() < 30, "few mesh instances left to draw (%d)" % all.size())
 	check(yard.mower.wheels[0].get_child_count() == 1, "each wheel is baked but still spins on its own")
 	check(yard.walker.person.get_node("LeftLeg").get_child_count() == 1, "limbs are baked but still swing")
+	await end_yard(yard)
+
+
+## The web build must stay on the Compatibility renderer; desktop builds
+## use Forward+ and turn on extra effects by quality level.
+func test_desktop_builds_get_richer_effects() -> void:
+	check(ProjectSettings.get_setting("rendering/renderer/rendering_method.web") == "gl_compatibility", "web uses the Compatibility renderer")
+	check(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "forward_plus", "desktop uses Forward+")
+	var yard := await new_yard()
+	check(not yard.rich_graphics, "tests run without the desktop renderer")
+	check(yard.view.blades == LawnView.BLADES, "the web build keeps the lighter grass")
+	yard._apply_rich_effects("low")
+	check(not yard.environment.ssao_enabled and not yard.environment.glow_enabled, "low skips the desktop effects")
+	yard._apply_rich_effects("medium")
+	check(yard.environment.ssao_enabled and not yard.environment.ssil_enabled, "medium adds ambient occlusion")
+	yard._apply_rich_effects("high")
+	check(yard.environment.ssil_enabled and yard.environment.glow_enabled and yard.sun.light_angular_distance > 0.0, "high adds bounce light, glow and soft shadows")
 	await end_yard(yard)
 
 

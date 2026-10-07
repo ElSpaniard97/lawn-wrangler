@@ -5,11 +5,32 @@ Version 1.0.0
 A relaxing 3D landscaping game. Ride an orange mower across the open lawn,
 hop off to trim along the fence and around the trees and flower beds with a
 weed eater, and cut 99% of the grass to finish. Built with Godot 4 and
-GDScript, and played in the browser.
+GDScript, and played in the browser or downloaded for Windows, Mac or Linux.
 
 [Play Lawn Wrangler](https://ElSpaniard97.github.io/lawn-wrangler/)
 
 ![Lawn Wrangler gameplay](screenshot.png)
+
+## Desktop downloads
+
+The desktop version uses Godot's Forward+ renderer, which browsers cannot
+run. On Medium and High quality it adds ambient occlusion (soft contact
+shadows), and on High it adds bounce light, a gentle glow and softer sun
+shadows. It also draws thicker grass. Download it from the
+[game page](https://ElSpaniard97.github.io/lawn-wrangler/):
+
+- [Windows](https://ElSpaniard97.github.io/lawn-wrangler/download/LawnWrangler-windows.zip):
+  unzip and run `LawnWrangler.exe`. It is not signed yet, so Windows may
+  warn; choose More info, then Run anyway.
+- [Mac](https://ElSpaniard97.github.io/lawn-wrangler/download/LawnWrangler-macos.zip):
+  unzip and move Lawn Wrangler to Applications. It is not notarized yet, so
+  the first time, right-click it and choose Open.
+- [Linux](https://ElSpaniard97.github.io/lawn-wrangler/download/LawnWrangler-linux.zip):
+  unzip and run `LawnWrangler.x86_64`.
+
+[SHA256SUMS.txt](https://ElSpaniard97.github.io/lawn-wrangler/download/SHA256SUMS.txt)
+lists each file's checksum. A computer whose graphics card cannot run
+Forward+ falls back to the same renderer as the web version.
 
 ## Features
 
@@ -79,8 +100,9 @@ its GitHub releases page.
 
 ## How it is published
 
-Every push to `main` runs the tests, exports the game to `site/play/` and
-deploys `site/` to GitHub Pages. Pull requests run the tests only. CI
+Every push to `main` runs the tests, exports the game to `site/play/`,
+exports the Windows, Mac and Linux downloads to `site/download/` with a
+SHA256SUMS.txt, and deploys `site/` to GitHub Pages. Pull requests run the tests only. CI
 downloads the exact Godot version and checks its SHA-512 sums in
 `.github/scripts/setup-godot.sh` before using it; to upgrade Godot, change the
 version and both sums there, and the version noted in `godot/project.godot`.
