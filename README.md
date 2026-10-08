@@ -1,5 +1,28 @@
 # Lawn Wrangler
 
+The browser game now runs on **Babylon.js**, with Vite for its static web build. Godot remains the desktop edition; Unreal remains a separate desktop experiment.
+
+## Browser development
+
+```sh
+cd babylon
+npm ci
+npm run dev
+npm test
+npm run build
+```
+
+Use Node.js 22.12 or later. Publish `babylon/dist/` under `play/` alongside `web/index.html` and `web/credits.html`. GitHub Pages builds this automatically on main. No paid assets, subscriptions, or engine royalties.
+
+The Babylon edition includes mowing with directional stripes, walking and trimming, obstacle collisions, four objectives, 99% completion, fuel/refilling at the red porch can, pause/focus handling, personal best, minimap, grass highlighting, sound, quality presets, keyboard/touch/gamepad inputs. Settings and best time use browser local storage; storage failures do not prevent play. The yard is rebuilt procedurally rather than importing Godot scenes.
+
+Controls: WASD/arrows drive or walk, Space hop off/on near the mower, B blades, H find grass on minimap, M sound, Q quality, P/Escape pause, R restart, F3 FPS. Gamepad: sticks move/steer, triggers drive/reverse, A mount, B blades, X highlight, Y mute, Start pause. Touch arrows and action buttons are on screen.
+
+See [Babylon migration notes](babylon/README.md) for validation and known limits.
+
+## Existing desktop edition and project history
+
+
 Version 1.0.0
 
 A relaxing 3D landscaping game. Ride an orange mower across the open lawn,
