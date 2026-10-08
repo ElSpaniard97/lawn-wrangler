@@ -194,8 +194,9 @@ void ULawnGridComponent::WriteMask()
 			continue;
 		}
 		const bool bMap = Texture == MapTexture;
-		FTexture2DMipMap& Mip = Texture->GetPlatformData()->Mips[0];
-		FColor* Pixels = static_cast<FColor*>(Mip.BulkData.Lock(LOCK_READ_WRITE));
+		// Update the existing GPU resource. The render thread owns this
+		// snapshot until the cleanup callback; never pass temporary data.
+		FColor* Pixels = new FColor[Cells.Num()];
 		for (int32 I = 0; I < Cells.Num(); ++I)
 		{
 			const uint8 Value = Cells[I];
@@ -205,8 +206,14 @@ void ULawnGridComponent::WriteMask()
 				Value == LawnCell::Blocked ? 255 : 0,
 				255);
 		}
-		Mip.BulkData.Unlock();
-		Texture->UpdateResource();
+		auto* Region = new FUpdateTextureRegion2D(0, 0, 0, 0, Columns, Rows);
+		Texture->UpdateTextureRegions(0, 1, Region, Columns * sizeof(FColor),
+			sizeof(FColor), reinterpret_cast<uint8*>(Pixels),
+			[](uint8* Data, const FUpdateTextureRegion2D* Regions)
+			{
+				delete[] reinterpret_cast<FColor*>(Data);
+				delete Regions;
+			});
 	}
 	bMaskDirty = false;
 }
