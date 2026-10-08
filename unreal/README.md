@@ -165,3 +165,19 @@ notes in the main README.
   `git lfs install`; GitHub Desktop does this for you. GitHub's free LFS
   storage is limited, so keep the project lean and check your GitHub
   billing page if pushes start failing.
+
+## Stability update
+
+Both chase cameras now probe the environment on the Camera collision channel
+and pull inward around obstacles. New imported scenery must block that channel.
+Completing the yard freezes both pawns, resets their speed/cutting indicators,
+and prevents further movement or trimming; controller restart remains available.
+
+The grass mask and minimap upload pixel snapshots into existing GPU textures
+instead of recreating texture resources after each cut. Upload memory remains
+owned until the render-thread cleanup callback. Profile frame time with dense
+grass before claiming a measured performance gain.
+
+The `LawnWrangler.Pawns` automation tests check camera configuration and verify
+that stopped pawns cannot move or cut. Visual camera clearance and texture
+appearance still require a rendered play test.
