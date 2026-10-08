@@ -13,7 +13,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const obstacles=[{x:-11.2,z:-4,w:3.2,d:10},{x:4,z:12,w:8,d:4},...[[10,8],[10,-10],[-11,9]].map(([x,z])=>({x,z,r:.7}))];
 export class Game {
  constructor(storage){this.storage=storage;this.lawn=new Lawn();this.lawn.block((x,z)=>obstacles.some(o=>o.r?Math.hypot(x-o.x,z-o.z)<o.r:Math.abs(x-o.x)<o.w/2&&Math.abs(z-o.z)<o.d/2));this.best=0;this.settings={quality:'high',muted:false};try{const b=Number(storage?.getItem('lw.babylon.best'));if(Number.isFinite(b)&&b>0)this.best=b;const s=JSON.parse(storage?.getItem('lw.babylon.settings')||'{}');if(['low','medium','high'].includes(s.quality))this.settings.quality=s.quality;if(typeof s.muted==='boolean')this.settings.muted=s.muted;}catch{}this.reset();}
- reset(){this.lawn.reset();this.mower={x:0,z:-11,yaw:0};this.walker={x:0,z:0,yaw:0};this.onMower=true;this.speed=0;this.measuredSpeed=0;this.fuel=1;this.blades=true;this.paused=false;this.finished=false;this.elapsed=0;this.highlight=false;this.message='Make your first pass.';}
+ reset(){this.lawn.reset();this.mower={x:0,z:-8,yaw:0};this.walker={x:0,z:0,yaw:0};this.onMower=true;this.speed=0;this.measuredSpeed=0;this.fuel=1;this.blades=true;this.paused=false;this.finished=false;this.elapsed=0;this.highlight=false;this.message='Make your first pass.';}
  get actor(){return this.onMower?this.mower:this.walker;}
  saveSettings(){try{this.storage?.setItem('lw.babylon.settings',JSON.stringify(this.settings));}catch{this.message='Settings could not be saved.';}}
  fits(x,z,r){return Math.abs(x)<=12-r&&Math.abs(z)<=15-r&&!obstacles.some(o=>o.r?Math.hypot(x-o.x,z-o.z)<r+o.r:Math.hypot(Math.max(Math.abs(x-o.x)-o.w/2,0),Math.max(Math.abs(z-o.z)-o.d/2,0))<r);}
