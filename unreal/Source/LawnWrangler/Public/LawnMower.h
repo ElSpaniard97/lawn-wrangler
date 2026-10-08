@@ -94,11 +94,14 @@ public:
 	UPROPERTY()
 	TObjectPtr<ULawnGridComponent> Lawn;
 
-	void ToggleBlades() { bBladesOn = !bBladesOn; }
+	void ToggleBlades() { if (!bGameplayStopped) { bBladesOn = !bBladesOn; } }
 	void Refuel(float Amount) { Fuel = FMath::Min(1.f, Fuel + Amount); }
 
 	/** Moves and cuts for one frame. Public so tests can drive it directly. */
 	void Drive(float Throttle, float Steer, float DeltaTime);
+
+	/** Freeze movement and cutting after yard completion. */
+	void StopGameplay();
 
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -107,6 +110,7 @@ public:
 	virtual void UnPossessed() override;
 
 private:
+	bool bGameplayStopped = false;
 	UPROPERTY()
 	TObjectPtr<UStaticMesh> StandInBody;
 
