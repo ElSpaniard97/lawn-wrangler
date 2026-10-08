@@ -625,6 +625,10 @@ void ALawnYard::Finish()
 	}
 	if (Mower)
 	{
-		Mower->bDriving = false;
+		Mower->StopGameplay();
+	}
+	if (Walker)
+	{
+		Walker->StopGameplay();
 	}
 }
