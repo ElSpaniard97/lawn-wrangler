@@ -67,7 +67,9 @@ ALawnMower::ALawnMower()
 	CameraArm->bEnableCameraLag = true;
 	CameraArm->bEnableCameraRotationLag = true;
 	CameraArm->CameraRotationLagSpeed = 6.f;
-	CameraArm->bDoCollisionTest = false;
+	CameraArm->bDoCollisionTest = true;
+	CameraArm->ProbeChannel = ECC_Camera;
+	CameraArm->ProbeSize = 12.f;
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(CameraArm);
@@ -110,6 +112,11 @@ void ALawnMower::Tick(float DeltaTime)
 
 void ALawnMower::Drive(float Throttle, float Steer, float DeltaTime)
 {
+	if (bGameplayStopped)
+	{
+		return;
+	}
+
 	float Target = Throttle * (Throttle >= 0.f ? MaxSpeed : ReverseSpeed);
 	if (Fuel <= 0.f)
 	{
@@ -186,4 +193,17 @@ void ALawnMower::OnHop()
 	{
 		It->ToggleMower();
 	}
+}
+
+void ALawnMower::StopGameplay()
+{
+	bGameplayStopped = true;
+	ThrottleInput = 0.f;
+	SteerInput = 0.f;
+	MeasuredSpeed = 0.f;
+	bCutting = false;
+	bDriving = false;
+	Speed = 0.f;
+	bHasLastBlade = false;
+	SetActorTickEnabled(false);
 }
