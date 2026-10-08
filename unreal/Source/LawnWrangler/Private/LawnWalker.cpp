@@ -62,7 +62,9 @@ ALawnWalker::ALawnWalker()
 	CameraArm->SetRelativeRotation(FRotator(-15.f, 0.f, 0.f));
 	CameraArm->bEnableCameraRotationLag = true;
 	CameraArm->CameraRotationLagSpeed = 6.f;
-	CameraArm->bDoCollisionTest = false;
+	CameraArm->bDoCollisionTest = true;
+	CameraArm->ProbeChannel = ECC_Camera;
+	CameraArm->ProbeSize = 12.f;
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(CameraArm);
@@ -109,6 +111,11 @@ void ALawnWalker::Tick(float DeltaTime)
 
 void ALawnWalker::Walk(float Throttle, float Steer, float DeltaTime)
 {
+	if (bGameplayStopped)
+	{
+		return;
+	}
+
 	AddActorWorldRotation(FRotator(0.f, Steer * TurnRate * DeltaTime, 0.f));
 	const float Speed = Throttle * (Throttle >= 0.f ? WalkSpeed : BackSpeed);
 	const FVector Before = GetActorLocation();
@@ -156,4 +163,15 @@ void ALawnWalker::OnHop()
 	{
 		It->ToggleMower();
 	}
+}
+
+void ALawnWalker::StopGameplay()
+{
+	bGameplayStopped = true;
+	ThrottleInput = 0.f;
+	SteerInput = 0.f;
+	MeasuredSpeed = 0.f;
+	bCutting = false;
+	bHasLastTip = false;
+	SetActorTickEnabled(false);
 }
