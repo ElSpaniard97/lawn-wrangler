@@ -74,12 +74,16 @@ public:
 
 	FVector TipLocation() const;
 
+	/** Freeze movement and cutting after yard completion. */
+	void StopGameplay();
+
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void UnPossessed() override;
 
 private:
+	bool bGameplayStopped = false;
 	UPROPERTY()
 	TObjectPtr<UMaterialInterface> ShapeMaterial;
 
