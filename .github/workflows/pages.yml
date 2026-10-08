@@ -1,4 +1,4 @@
-# Tests the Godot game, exports it for the web and as Windows, Mac and Linux
+# Tests Babylon and Godot; publishes Babylon web and Godot desktop builds
 # downloads, and publishes it all to GitHub Pages every time you push to the
 # main branch. Pull requests run the tests only.
 # Actions are pinned to full commit SHAs (version in the comment) so a moved tag
@@ -33,6 +33,18 @@ jobs:
             ~/godot
             ~/.local/share/godot/export_templates
           key: godot-4.7.2-stable-web-${{ hashFiles('.github/scripts/setup-godot.sh') }}
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: babylon/package-lock.json
+      - name: Test and build Babylon browser game
+        working-directory: babylon
+        run: |
+          npm ci
+          npm test
+          npm run build
       - name: Install pinned Godot (checksum verified)
         run: .github/scripts/setup-godot.sh
       - name: Run tests
@@ -54,14 +66,25 @@ jobs:
             ~/godot
             ~/.local/share/godot/export_templates
           key: godot-4.7.2-stable-web-${{ hashFiles('.github/scripts/setup-godot.sh') }}
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: babylon/package-lock.json
+      - name: Test and build Babylon browser game
+        working-directory: babylon
+        run: |
+          npm ci
+          npm test
+          npm run build
       - name: Install pinned Godot (checksum verified)
         run: .github/scripts/setup-godot.sh
       - name: Export game
         run: |
           mkdir -p site/play
           godot --headless --path godot --import
-          godot --headless --path godot --export-release Web ../site/play/index.html
-          test -f site/play/index.wasm
+          cp -R babylon/dist/. site/play/
           cp web/index.html web/credits.html site/
       - name: Export desktop downloads
         run: |
