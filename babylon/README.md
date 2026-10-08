@@ -34,3 +34,11 @@ npm run build
 Node tests exercise blocked coverage, swept cuts, pause/finish, mount/reset, collision boundaries, best persistence and storage failures. Browser smoke checks cover rendering, driving/cutting, dismount, pause and reset. Device-specific gamepad and real touchscreen testing still needs physical hardware.
 
 This port rebuilds a smaller yard and procedural models; it does not preserve identical Godot scenery. WebGL is the baseline renderer. Low quality hides grass meshes and shadows; all presets retain simulation. Highlight currently shows missed patches on the minimap. Audio is a basic synthesized motor, not recordings. Browser/Godot saved scores have separate storage and are not transferred. Higher realism, WebGPU and asset optimization remain further graphics work. The initial engine bundle needs modular import optimization before download size can be considered final.
+
+## Reference-inspired graphics pass
+
+The browser scene now uses a detailed procedural zero-turn mower (treaded wheels, fan grille, engine fins, discharge chute, lap bars and fuel tanks), a rounded driver with a cap and hearing protection, and a matching walking landscaper. The garden adds siding, pitched shingle roofs, window trim, a covered porch, wood-grain fencing, flowers, branching trees with instanced leaves, and a furnished pergola patio.
+
+Grass is now a curved ribbon with randomized height, heading and color, plus a gentle GPU wind effect. Cut grass retains directional color and short stubble; the coverage texture fills its actual GPU dimensions and updates only changed cells. Static scenery is merged by material to limit draw calls. High uses 18 blades per cell, Medium 9 distributed throughout the yard, and Low uses the lawn surface without blades or shadows.
+
+The HUD follows the supplied reference: a compact checklist, progress bar, circular minimap, speed dial and fuel bar. Every asset and texture is generated locally at no cost. This is a step toward the reference composition, not a photorealistic reproduction; scanned materials and authored character/mower assets would be a later art pass. Gameplay and collision layout remain the same.
