@@ -33,7 +33,7 @@ npm run build
 
 Node tests exercise blocked coverage, swept cuts, pause/finish, mount/reset, collision boundaries, best persistence and storage failures. Browser smoke checks cover rendering, driving/cutting, dismount, pause and reset. Device-specific gamepad and real touchscreen testing still needs physical hardware.
 
-This port rebuilds a smaller yard and procedural models; it does not preserve identical Godot scenery. WebGL is the baseline renderer. Low quality hides grass meshes and shadows; all presets retain simulation. Highlight currently shows missed patches on the minimap. Audio is a basic synthesized motor, not recordings. Browser/Godot saved scores have separate storage and are not transferred. Higher realism, WebGPU and asset optimization remain further graphics work. The initial engine bundle needs modular import optimization before download size can be considered final.
+This port rebuilds a smaller yard and procedural models; it does not preserve identical Godot scenery. WebGL is the baseline renderer. Low quality hides grass meshes and shadows; all presets retain simulation. Highlight currently shows missed patches on the minimap. Audio is a basic synthesized motor, not recordings. Browser/Godot saved scores have separate storage and are not transferred. Higher realism, WebGPU and asset optimization remain further graphics work. Babylon is imported module by module rather than through the `@babylonjs/core` index, which cut the main script from 6.8 MB to 1.1 MB (1.5 MB to 0.28 MB compressed). Import new Babylon classes from their own files to keep it that way. Phones and tablets start on Low quality until the player picks another.
 
 ## Reference-inspired graphics pass
 

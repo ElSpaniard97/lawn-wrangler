@@ -1,9 +1,23 @@
-import {Engine,Scene,Vector3,Color3,Color4,MeshBuilder,StandardMaterial,HemisphericLight,DirectionalLight,ShadowGenerator,ArcRotateCamera,TransformNode,Matrix,Quaternion,DynamicTexture} from '@babylonjs/core';
+// Babylon is imported module by module so the web build only ships what the game uses.
+import {Engine} from '@babylonjs/core/Engines/engine.js';
+import {Scene} from '@babylonjs/core/scene.js';
+import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
+import {Color3,Color4} from '@babylonjs/core/Maths/math.color.js';
+import {MeshBuilder} from '@babylonjs/core/Meshes/meshBuilder.js';
+import {StandardMaterial} from '@babylonjs/core/Materials/standardMaterial.js';
+import {DynamicTexture} from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
+import {HemisphericLight} from '@babylonjs/core/Lights/hemisphericLight.js';
+import {DirectionalLight} from '@babylonjs/core/Lights/directionalLight.js';
+import {ShadowGenerator} from '@babylonjs/core/Lights/Shadows/shadowGenerator.js';
+import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js';
+import {ArcRotateCamera} from '@babylonjs/core/Cameras/arcRotateCamera.js';
 import './style.css';
 import {Game, BLOCKED} from './lawn.js';
 import {buildGraphics} from './graphics.js';
 let storage;try{storage=window.localStorage;}catch{}
-const game=new Game(storage);
+// Phones and tablets start on Low until the player picks a quality.
+let coarse=false;try{coarse=matchMedia('(pointer: coarse)').matches;}catch{}
+const game=new Game(storage,coarse?'low':'high');
 const $=id=>document.getElementById(id),engine=new Engine($('game'),true,{preserveDrawingBuffer:true}),scene=new Scene(engine);
 scene.clearColor=new Color4(.64,.81,.91,1);scene.fogMode=Scene.FOGMODE_EXP2;scene.fogDensity=.003;scene.fogColor=new Color3(.64,.81,.91);
 const ambient=new HemisphericLight('sky',new Vector3(0,1,0),scene);ambient.intensity=.85;ambient.groundColor=new Color3(.25,.31,.15);

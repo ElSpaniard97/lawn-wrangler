@@ -133,8 +133,8 @@ alongside this one, for a more photo-real look. The gameplay is already
 ported to C++, and the game sets up its own yard with simple stand-in
 shapes, so it plays as soon as it builds; photo-real art from Fab is added
 in the Unreal editor next. It is
-for downloads only, because Unreal cannot export to the web, so the Godot
-version stays the one you play in the browser. See
+for downloads only, because Unreal cannot export to the web, so the Babylon.js
+version is the one you play in the browser. See
 [unreal/README.md](unreal/README.md) for setup.
 
 ## Work on the game
@@ -227,6 +227,7 @@ The full plan is in the project's improvement plan document.
 | 6. Realism pass: lighting, thicker grass, real stripes, photo textures | Done |
 | 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower, bigger yard, HUD with fuel and gamepad | Done |
 | 8. Unreal Engine 5 version alongside Godot: gameplay ported to C++ (done), playable yard with stand-in shapes (done), Fab art in the editor (next) | In progress |
+| 9. Babylon.js browser edition: migration and graphics pass (done), smaller download, phones start on Low, Babylon credits (done) | In progress |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling

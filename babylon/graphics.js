@@ -1,5 +1,14 @@
-import { Color3, Color4, Vector3, Quaternion, Matrix, Mesh, MeshBuilder, VertexData,
-  TransformNode, StandardMaterial, DynamicTexture, MaterialPluginBase } from '@babylonjs/core';
+// Babylon is imported module by module so the web build only ships what the game uses.
+import { Color3, Color4 } from '@babylonjs/core/Maths/math.color.js';
+import { Vector3, Quaternion, Matrix } from '@babylonjs/core/Maths/math.vector.js';
+import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
+import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder.js';
+import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData.js';
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
+import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
+import { MaterialPluginBase } from '@babylonjs/core/Materials/materialPluginBase.js';
+import '@babylonjs/core/Meshes/thinInstanceMesh.js';
 import { BLOCKED } from './lawn.js';
 
 // All artwork is generated locally. No downloads, paid assets or image CDN.
