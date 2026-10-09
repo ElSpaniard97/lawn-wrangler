@@ -230,6 +230,7 @@ The full plan is in the project's improvement plan document.
 | 9. Babylon.js browser edition: migration and graphics pass (done), smaller download, phones start on Low, Babylon credits (done), folding key guide, photo textures, missed grass glowing on the lawn, clippings, richer sound and the 30 x 36 m yard (done) | Done |
 | 10. Graphics pass toward the reference image: detailed mower and driver, house gables, photo windows, door and sky, tree line, photo lawn | Done |
 | 11. Movement fixes: wheels roll with real movement (outside wheel faster in turns), zero-turn pivot steering, walking legs, trimmer sweep and spinning line, driver leans into turns | Done |
+| 12. Graphics upgrade: reflections on paint, chrome and windows; sun glow, colour grading, depth blur and soft corner shadows; painted cutout shrubs, flowers and leafy tree crowns; dog-ear fence; seamless painted sky; thicker grass near the player; gauge speedometer | Done |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling

@@ -19,7 +19,6 @@ repeat seamlessly. Only the Babylon browser edition uses these.
 
 | File | Used for |
 | --- | --- |
-| `babylon/textures/sky_partly_cloudy.jpg` | The sky dome |
 | `babylon/textures/siding_gray.jpg` | The left neighbour's house |
 | `babylon/textures/stone_accent.jpg` | House foundation, chimney and porch column bases |
 | `babylon/textures/gravel.jpg` | River-rock beds along the house |
