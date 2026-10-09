@@ -9,6 +9,9 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js'
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
 import { Texture } from '@babylonjs/core/Materials/Textures/texture.js';
 import { MaterialPluginBase } from '@babylonjs/core/Materials/materialPluginBase.js';
+import { FresnelParameters } from '@babylonjs/core/Materials/fresnelParameters.js';
+import { RenderTargetTexture } from '@babylonjs/core/Materials/Textures/renderTargetTexture.js';
+import { ReflectionProbe } from '@babylonjs/core/Probes/reflectionProbe.js';
 import '@babylonjs/core/Meshes/thinInstanceMesh.js';
 import { BLOCKED, YARD, trees } from './lawn.js';
 
@@ -30,7 +33,6 @@ export const photos={
   gravel:new URL('./textures/gravel.jpg',import.meta.url).href,
   window:new URL('./textures/window.jpg',import.meta.url).href,
   door:new URL('./textures/front_door.jpg',import.meta.url).href,
-  sky:new URL('./textures/sky_partly_cloudy.jpg',import.meta.url).href,
 };
 export function buildGraphics(scene, shadows, lawn) {
   let seed = 7429;
@@ -105,9 +107,6 @@ export function buildGraphics(scene, shadows, lawn) {
   const shirt = textured('cotton shirt', '#414a50', 'noise');
   const jeans = material('denim', '#3a5770');
   const skin = material('skin', '#c99d79', .08);
-  const green = material('leaf green', '#9fbf6a'); green.backFaceCulling = false; green.diffuseTexture = new Texture(photos.leaves, scene);
-  const pink = material('pink petals', '#d56c9e');
-  const cream = material('white petals', '#fff3cf');
 
   function finish(mesh, m, parent, cast = true) {
     mesh.material = m; if (parent) mesh.parent = parent;
@@ -142,19 +141,52 @@ export function buildGraphics(scene, shadows, lawn) {
     o.rotationQuaternion = Quaternion.FromUnitVectorsToRef(Vector3.Up(), direction.normalize(), new Quaternion());
     return o;
   }
-  function foliage(name, points, scale = .2, cast = false) {
-    const o = MeshBuilder.CreateSphere(name, { diameter: 1, segments: 6 }, scene);
-    o.material = green;
-    const buffer = new Float32Array(points.length * 16), colors = new Float32Array(points.length * 4);
-    points.forEach(([x,y,z], i) => {
-      const s = scale * (.65 + random() * .7);
-      Matrix.Compose(new Vector3(s * 1.6, s * .16, s), Quaternion.RotationYawPitchRoll(random()*6.28,random()*3,random()*3),new Vector3(x,y,z)).copyToArray(buffer,i*16);
-      const tint=.65+random()*.45;colors.set([tint,tint,.75+random()*.25,1],i*4);
+  // Cutout foliage: leaf clusters and flowering plants are painted onto transparent textures,
+  // then shown on crossed cards so shrubs, flowers and tree canopies read as leaves, not blobs.
+  function painted(name,size,paint){
+    const t=new DynamicTexture(name,size,scene,true),c=t.getContext();c.clearRect(0,0,size,size);paint(c,size);t.hasAlpha=true;t.update();
+    const m=material(name,'#ffffff');m.diffuseTexture=t;m.backFaceCulling=false;m.specularColor=new Color3(.05,.06,.03);return m;
+  }
+  function leaf(c,x,y,len,angle,color){c.save();c.translate(x,y);c.rotate(angle);c.fillStyle=color;c.beginPath();c.moveTo(0,0);c.quadraticCurveTo(len*.5,-len*.32,len,0);c.quadraticCurveTo(len*.5,len*.32,0,0);c.fill();c.restore();}
+  const leafColors=(light)=>{const h=78+random()*34,l=light*(22+random()*24);return `hsl(${h},${38+random()*25}%,${l}%)`;};
+  const leafCards=painted('leaf cluster',256,(c,n)=>{
+    for(let i=0;i<900;i++){const a=random()*6.28,r=Math.sqrt(random())*n*.44,x=n/2+Math.cos(a)*r,y=n/2+Math.sin(a)*r*.9,depth=1-r/(n*.44);
+      leaf(c,x,y,10+random()*12,random()*6.28,leafColors(.8+(1-depth)*.5+(y<n/2?.25:0)));}
+  });
+  const flowerCards=painted('flowering plant',256,(c,n)=>{
+    for(let i=0;i<420;i++){const x=n*.12+random()*n*.76,y=n*.35+random()*n*.62;leaf(c,x,y,9+random()*10,-Math.PI/2+(random()-.5)*2.4,leafColors(.75+random()*.3));}
+    const petals=['#e2669c','#f5b3cf','#fff2d2','#f4d35e','#b07ad6'];
+    for(let i=0;i<34;i++){
+      const x=n*.15+random()*n*.7,y=n*.12+random()*n*.5,r=5+random()*5,color=petals[Math.floor(random()*petals.length)];
+      c.strokeStyle='#4f7a2a';c.lineWidth=2;c.beginPath();c.moveTo(x,y);c.lineTo(x+(random()-.5)*8,n*.95);c.stroke();
+      for(let k=0;k<5;k++){const a=k*1.2566+random()*.3;c.fillStyle=color;c.beginPath();c.ellipse(x+Math.cos(a)*r*.7,y+Math.sin(a)*r*.7,r*.7,r*.45,a,0,6.28);c.fill();}
+      c.fillStyle='#f0c23a';c.beginPath();c.arc(x,y,r*.32,0,6.28);c.fill();
+    }
+  });
+  // A card is three upright planes crossed at 60 degrees; normals point up so both sides light evenly.
+  function cardMesh(name,m){
+    const o=new Mesh(name,scene),d=new VertexData();d.positions=[];d.indices=[];d.uvs=[];d.normals=[];
+    for(let k=0;k<3;k++){const a=k*Math.PI/3,cx=Math.cos(a)*.5,cz=Math.sin(a)*.5,i=k*4;
+      d.positions.push(-cx,0,-cz,cx,0,cz,cx,1,cz,-cx,1,-cz);
+      d.uvs.push(0,0,1,0,1,1,0,1);d.normals.push(0,1,0,0,1,0,0,1,0,0,1,0);d.indices.push(i,i+1,i+2,i,i+2,i+3);}
+    d.applyToMesh(o);o.material=m;o.receiveShadows=true;return o;
+  }
+  function cards(name,m,list,cast=false){
+    const o=cardMesh(name,m),buffer=new Float32Array(list.length*16),colors=new Float32Array(list.length*4);
+    list.forEach(({x,y,z,size,yaw=random()*6.28,tilt=0,tint=1},i)=>{
+      Matrix.Compose(new Vector3(size,size,size),Quaternion.RotationYawPitchRoll(yaw,tilt,0),new Vector3(x,y,z)).copyToArray(buffer,i*16);colors.set([tint,tint,tint*(.9+random()*.15),1],i*4);
     });
-    o.thinInstanceSetBuffer('matrix',buffer,16);o.thinInstanceSetBuffer('color',colors,4);
-    o.thinInstanceRefreshBoundingInfo();o.receiveShadows=true;
-    if(cast)shadows.addShadowCaster(o);
-    return o;
+    o.thinInstanceSetBuffer('matrix',buffer,16);o.thinInstanceSetBuffer('color',colors,4);o.thinInstanceRefreshBoundingInfo();
+    if(cast)shadows.addShadowCaster(o);return o;
+  }
+  // A dog-ear fence picket: a flat board with its two top corners clipped, extruded to thickness.
+  function picket(name,w,h,t,x,y,z,yaw,m){
+    const ear=w*.3,outline=[[-w/2,0],[w/2,0],[w/2,h-ear],[w/2-ear,h],[-w/2+ear,h],[-w/2,h-ear]],o=new Mesh(name,scene),d=new VertexData();
+    d.positions=[];d.indices=[];
+    for(const side of [-1,1]){const base=d.positions.length/3;for(const [px,py] of outline)d.positions.push(px,py,side*t/2);for(let i=1;i<outline.length-1;i++)side>0?d.indices.push(base,base+i,base+i+1):d.indices.push(base,base+i+1,base+i);}
+    for(let i=0;i<outline.length;i++){const [ax,ay]=outline[i],[bx,by]=outline[(i+1)%outline.length],base=d.positions.length/3;d.positions.push(ax,ay,-t/2,bx,by,-t/2,bx,by,t/2,ax,ay,t/2);d.indices.push(base,base+2,base+1,base,base+3,base+2);}
+    d.normals=[];VertexData.ComputeNormals(d.positions,d.indices,d.normals);d.applyToMesh(o);
+    o.position.set(x,y,z);o.rotation.y=yaw;return finish(o,m);
   }
 
   // Residential yard: siding, trim, porch, pergola, planted borders.
@@ -193,9 +225,9 @@ export function buildGraphics(scene, shadows, lawn) {
   box('gas can',.3,.45,.25,-9,.3,-4,material('gas can red','#c3462b',.1));
   });
 
-  for (let z=-HZ-.6;z<=HZ+.6;z+=.32) box('fence board',.12,2.1,.3,HX+.65,1.05,z,cedar);
+  for (let z=-HZ-.6;z<=HZ+.6;z+=.32) picket('fence board',.3,2.1,.03,HX+.72,0,z,Math.PI/2,cedar);
   for (const z of [-HZ-.7,HZ+.7]) {
-    for(let x=-HX-.5;x<=HX+.5;x+=.32)box('fence board',.3,2.1,.12,x,1.05,z,cedar);
+    for(let x=-HX-.5;x<=HX+.5;x+=.32)picket('fence board',.3,2.1,.03,x,0,z+Math.sign(z)*.05,0,cedar);
     for(let x=-HX-.5;x<=HX+.5;x+=2.5)box('fence post',.18,2.25,.18,x,1.125,z,cedar);
     for(const y of [.5,1.55])box('fence rail',HX*2+1,.12,.12,0,y,z-Math.sign(z)*.13,cedar);
   }
@@ -221,29 +253,25 @@ export function buildGraphics(scene, shadows, lawn) {
       const angle=i*6.28/7;
       rod('tree branch',[x,2.4,z],[x+Math.cos(angle)*1.8,4.5+random(),z+Math.sin(angle)*1.8],.13,bark);
     }
-    const leaves=[];
-    for(let i=0;i<1600;i++) {
-      const az=random()*6.28,v=random()*2-1,r=Math.cbrt(random()),horizontal=Math.sqrt(1-v*v)*r;
-      leaves.push([x+Math.cos(az)*horizontal*2.6,5+v*r*1.8,z+Math.sin(az)*horizontal*2.6]);
-    }
-    foliage('tree canopy',leaves,.23,true);
+    // Leaf cards fill the crown; the ones underneath and inside are darker, as if shaded.
+    const crown=[];
+    for(const [bx,by,bz,br] of [[0,5.2,0,1.9],[1.2,4.7,.4,1.3],[-1.1,4.8,-.5,1.3],[.3,4.6,-1.2,1.2],[-.4,4.5,1.2,1.2],[.1,6.3,.1,1.2]])
+      for(let i=0;i<70;i++){const az=random()*6.28,v=random()*2-1,r=Math.cbrt(random()),hz=Math.sqrt(1-v*v)*r;
+        crown.push({x:x+bx+Math.cos(az)*hz*br,y:by+v*r*br*.85-.55,z:z+bz+Math.sin(az)*hz*br,size:.95+random()*.5,tilt:(random()-.5)*.6,tint:.62+r*.32+v*.14});}
+    cards('tree canopy',leafCards,crown,true);
     cylinder('tree mulch ring',1.35,.045,x,.03,z,mulch);
     const ring=MeshBuilder.CreateTorus('stone ring',{diameter:1.4,thickness:.12,tessellation:28},scene);ring.position.set(x,.075,z);finish(ring,edging);
   }
+  const shrubs=[],flowers=[];
   for (let side of [-1,1]) for(let i=0;i<12;i++) {
     const x=side*(HX+.25),z=-HZ+1.5+i*3;
     // River rock along the house side, bark mulch along the fence.
     box('border bed',.65,.04,2.65,x,.02,z,side<0?gravel:mulch,null,false);
     for(let dz=-1.15;dz<1.2;dz+=.35)box('border stone',.15,.12,.32,x-side*.38,.06,z+dz,edging);
-    const leaves=[];
-    for(let j=0;j<100;j++){const a=random()*6.28,r=Math.sqrt(random())*.48;leaves.push([x+Math.cos(a)*r,.25+random()*.6,z+Math.sin(a)*r]);}
-    foliage('border shrubs',leaves,.16);
-    for(let j=0;j<12;j++) {
-      const fx=x+(random()-.5)*.4,fz=z+(random()-.5)*1.9,fy=.35+random()*.25;
-      rod('flower stem',[fx,.02,fz],[fx,fy,fz],.015,green);
-      sphere('flower',.12,.07,.12,fx,fy,fz,i%2?pink:cream,null,false);
-    }
+    for(let j=0;j<7;j++){const a=random()*6.28,r=Math.sqrt(random())*.25;shrubs.push({x:x+Math.cos(a)*r,y:-.05,z:z+(j-3)*.36+(random()-.5)*.15,size:.55+random()*.35,tint:.8+random()*.3});}
+    for(let j=0;j<5;j++)flowers.push({x:x+(random()-.5)*.35,y:0,z:z+(random()-.5)*2.2,size:.45+random()*.25,tint:.95+random()*.1});
   }
+  cards('border shrubs',leafCards,shrubs,true);cards('border flowers',flowerCards,flowers);
   // A ring of distant shade trees closes off the horizon, like the tree line in the reference.
   const distantLeaves=material('distant leaves','#93ad6a');distantLeaves.diffuseTexture=new Texture(photos.leaves,scene);distantLeaves.diffuseTexture.uScale=3;distantLeaves.diffuseTexture.vScale=2;
   for(let i=0;i<44;i++){
@@ -445,7 +473,29 @@ export function buildGraphics(scene, shadows, lawn) {
   const baseColors=colors.slice(),glow=[1.45,1.4,.55,1];let highlight=false;
   function tint(id){for(let j=0;j<perCell;j++){const i=(id*perCell+j)*4;if(highlight&&lawn.cells[id]===0)colors.set(glow,i);else colors.set(baseColors.subarray(i,i+4),i);}}
   blade.thinInstanceSetBuffer('matrix',matrices,16,false);blade.thinInstanceSetBuffer('color',colors,4,false);
+  // Close to the player, a second pool of blades thickens the lawn; it follows the player around.
+  const near=new Mesh('near grass',scene),nearPer=22,nearRadius=7,span=Math.ceil(nearRadius/lawn.cell),nearMax=(span*2+1)**2*nearPer;
+  data.applyToMesh(near);near.material=grassMat;near.receiveShadows=true;near.alwaysSelectAsActiveMesh=true;near.isPickable=false;
+  const nearMatrices=new Float32Array(nearMax*16),nearColors=new Float32Array(nearMax*4),nearSlots=new Map(),hash=n=>{n=Math.imul(n^n>>>16,0x45d9f3b);n=Math.imul(n^n>>>16,0x45d9f3b);return ((n^n>>>16)>>>0)/4294967296;};
+  near.thinInstanceSetBuffer('matrix',nearMatrices,16,false);near.thinInstanceSetBuffer('color',nearColors,4,false);
+  let nearX=1e9,nearZ=1e9;
+  function nearCell(id,slot){
+    const center=lawn.center(id),state=lawn.cells[id];
+    for(let j=0;j<nearPer;j++){const k=id*nearPer+j,r=(n)=>hash(k*4+n),h=state===BLOCKED?0:state===0?.42+r(1)*.45:.05,i=slot+j;
+      Matrix.Compose(new Vector3(.55+r(2)*.5,h,1),Quaternion.RotationAxis(Vector3.Up(),r(3)*6.28),new Vector3(center.x+(r(0)-.5)*lawn.cell,.018,center.z+(hash(k*4+7)-.5)*lawn.cell)).copyToArray(nearMatrices,i*16);
+      const tint=.7+r(2)*.4;nearColors.set(highlight&&state===0?glow:[tint,.85+r(3)*.15,.7+r(1)*.3,1],i*4);}
+  }
+  function placeNear(x,z){
+    nearX=x;nearZ=z;nearSlots.clear();let slot=0;const col=Math.floor((x+lawn.width/2)/lawn.cell),row=Math.floor((z+lawn.depth/2)/lawn.cell);
+    for(let r=row-span;r<=row+span;r++)for(let c=col-span;c<=col+span;c++){
+      if(r<0||c<0||r>=lawn.rows||c>=lawn.cols)continue;const id=r*lawn.cols+c,p=lawn.center(id);if(Math.hypot(p.x-x,p.z-z)>nearRadius)continue;
+      nearSlots.set(id,slot);nearCell(id,slot);slot+=nearPer;
+    }
+    near.thinInstanceCount=slot;near.thinInstanceBufferUpdated('matrix');near.thinInstanceBufferUpdated('color');
+  }
   function refreshGrass(ids) {
+    let nearChanged=false;for(const id of ids)if(nearSlots.has(id)){nearCell(id,nearSlots.get(id));nearChanged=true;}
+    if(nearChanged){near.thinInstanceBufferUpdated('matrix');near.thinInstanceBufferUpdated('color');}
     for(const id of ids)for(let j=0;j<perCell;j++) {
       const index=id*perCell+j,s=samples[index],state=lawn.cells[id],h=state===BLOCKED||(quality==='medium'&&j%2)?0:state===0?s.h:.055;
       Matrix.Compose(new Vector3(s.width,h,1),Quaternion.RotationAxis(Vector3.Up(),s.angle),new Vector3(s.x,.018,s.z)).copyToArray(matrices,index*16);
@@ -490,13 +540,32 @@ export function buildGraphics(scene, shadows, lawn) {
     for(const mesh of meshes){mesh.computeWorldMatrix(true);shadows.removeShadowCaster(mesh);}
     const merged=Mesh.MergeMeshes(meshes,true,true);if(merged){merged.receiveShadows=true;shadows.addShadowCaster(merged);}
   }
-  // Sky: the partly cloudy photo, repeated (mirrored) four times around the horizon and
-  // rising from the horizon to just past the zenith (mirrored below it, behind the trees); the UVs are set from each vertex's direction.
-  const skyTexture=new Texture(photos.sky,scene);skyTexture.wrapU=Texture.MIRROR_ADDRESSMODE;skyTexture.wrapV=Texture.CLAMP_ADDRESSMODE;
+  // Sky: a painted gradient with soft clouds from tileable noise, so it wraps the dome with no seams or mirroring.
+  // Clouds thin out toward the zenith and the lower half fades to horizon haze behind the tree line.
+  const skyTexture=new DynamicTexture('painted sky',{width:1024,height:256},scene,true),sc=skyTexture.getContext(),pixels=sc.createImageData(1024,256),lattice=[];
+  for(let i=0;i<64*16;i++)lattice.push(random());
+  const smooth=t=>t*t*(3-2*t),cloudNoise=(u,v,period)=>{const x=u*period,y=v*period/4,x0=Math.floor(x),y0=Math.floor(y),fx=smooth(x-x0),fy=smooth(y-y0),at=(i,j)=>lattice[((j%16+16)%16)*64+((i%period+period)%period)];return (at(x0,y0)*(1-fx)+at(x0+1,y0)*fx)*(1-fy)+(at(x0,y0+1)*(1-fx)+at(x0+1,y0+1)*fx)*fy;};
+  // Row 0 of the canvas is the horizon and the last row is the zenith.
+  for(let py=0;py<256;py++)for(let px=0;px<1024;px++){
+    const u=px/1024,e=py/255;let n=0,amp=.5;for(const period of [4,8,16,32,64]){n+=cloudNoise(u,e*2.5,period)*amp;amp/=2;}
+    const cover=Math.max(0,Math.min(1,(n-.5)*5))*Math.min(1,e*7)*(1-e*.4),haze=Math.pow(1-e,2.5);
+    const sky=[96+haze*104,152+haze*68,222+haze*16],shade=Math.max(0,n-.6)*1.6,cloud=[250-shade*60,250-shade*55,252-shade*45],i=(py*1024+px)*4;
+    for(let k=0;k<3;k++)pixels.data[i+k]=sky[k]*(1-cover)+cloud[k]*cover;pixels.data[i+3]=255;
+  }
+  sc.putImageData(pixels,0,0);skyTexture.update();skyTexture.wrapV=Texture.CLAMP_ADDRESSMODE;
   const sky=MeshBuilder.CreateSphere('sky dome',{diameter:160,segments:32,sideOrientation:Mesh.BACKSIDE},scene),skyMaterial=material('sky material','#000000');
   const skyPositions=sky.getVerticesData('position'),skyUVs=[];
-  for(let i=0;i<skyPositions.length;i+=3){const [x,y,z]=[skyPositions[i],skyPositions[i+1],skyPositions[i+2]],elevation=Math.atan2(y,Math.hypot(x,z));skyUVs.push((Math.atan2(z,x)/Math.PI+1)*2,Math.abs(elevation)/(Math.PI/2)*1.1);}
+  for(let i=0;i<skyPositions.length;i+=3){const [x,y,z]=[skyPositions[i],skyPositions[i+1],skyPositions[i+2]],elevation=Math.atan2(y,Math.hypot(x,z));skyUVs.push(Math.atan2(z,x)/Math.PI/2+.5,Math.max(0,1-elevation/(Math.PI/2)));}
   sky.setVerticesData('uv',skyUVs);skyMaterial.disableLighting=true;skyMaterial.emissiveColor=Color3.Black();skyMaterial.emissiveTexture=skyTexture;sky.material=skyMaterial;sky.isPickable=false;sky.infiniteDistance=true;
+  // Reflections: one snapshot of the yard and sky from mower height, shown on paint, chrome and glass,
+  // strongest at grazing angles like real gloss.
+  const probe=new ReflectionProbe('yard reflections',256,scene);probe.position.set(0,1.2,-8);probe.refreshRate=RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
+  const shiny=[[orange,.04,.2],[gloss,.06,.25],[plastic,.03,.15],[chrome,.5,.75],[steel,.15,.3],[windowPhoto,.12,.5]];
+  // Shiny surfaces stay out of the snapshot, since a texture can't be drawn into itself.
+  for(const mesh of scene.meshes)if(!mesh.parent&&mesh!==blade&&mesh.name!=='clipping'&&!shiny.some(([m])=>m===mesh.material))probe.renderList.push(mesh);
+  for(const [m,face,edge] of shiny){
+    m.reflectionTexture=probe.cubeTexture;const f=new FresnelParameters();f.bias=0;f.power=2.5;f.leftColor=new Color3(edge,edge,edge);f.rightColor=new Color3(face,face,face);m.reflectionFresnelParameters=f;
+  }
   // Wheels roll by the distance each one actually travels, so the outside wheel turns faster in a curve.
   // The driver leans against the turn; the walker's legs stride and the trimmer sweeps while it spins.
   let lean=0,stride=0,sweep=0,sweepSize=0;
@@ -514,5 +583,5 @@ export function buildGraphics(scene, shadows, lawn) {
       line.rotation.y+=dt*47;
     }
   }
-  return {mower,driver,walker,blade,refreshGrass,lawnBase,spray,setHighlight(on){if(on===highlight)return;highlight=on;for(let id=0;id<lawn.cells.length;id++)tint(id);blade.thinInstanceBufferUpdated('color');},update(dt,motion={}){wind.time+=dt;updateClippings(dt);animate(dt,motion);},setQuality(q){quality=q;refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
+  return {mower,driver,walker,blade,refreshGrass,lawnBase,spray,setHighlight(on){if(on===highlight)return;highlight=on;for(let id=0;id<lawn.cells.length;id++)tint(id);blade.thinInstanceBufferUpdated('color');if(nearX<1e9)placeNear(nearX,nearZ);},update(dt,motion={}){wind.time+=dt;updateClippings(dt);animate(dt,motion);if(quality==='high'&&motion.x!==undefined&&Math.hypot(motion.x-nearX,motion.z-nearZ)>1.2)placeNear(motion.x,motion.z);},setQuality(q){quality=q;near.setEnabled(q==='high');refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
 }
