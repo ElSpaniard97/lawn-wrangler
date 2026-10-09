@@ -14,9 +14,9 @@ npm run build
 
 Use Node.js 22.12 or later. Publish `babylon/dist/` under `play/` alongside `web/index.html` and `web/credits.html`. GitHub Pages builds this automatically on main. No paid assets, subscriptions, or engine royalties.
 
-The Babylon edition includes mowing with directional stripes, walking and trimming, obstacle collisions, four objectives, 99% completion, fuel/refilling at the red porch can, pause/focus handling, personal best, minimap, grass highlighting, sound, quality presets, keyboard/touch/gamepad inputs. Settings and best time use browser local storage; storage failures do not prevent play. The yard is rebuilt procedurally rather than importing Godot scenes.
+The Babylon edition includes mowing with directional stripes, walking and trimming, obstacle collisions, four objectives, 99% completion, fuel/refilling at the red porch can, pause/focus handling, personal best, minimap, grass highlighting, sound, quality presets, keyboard/touch/gamepad inputs. Settings and best time use browser local storage; storage failures do not prevent play. The yard is rebuilt procedurally rather than importing Godot scenes, at the same 30 x 36 m size, with the house along the left fence, a front patio and three shade trees. Cutting throws clippings, and the engine, blades, weed eater, grass rustle and finish chime are synthesized in `babylon/sound.js`.
 
-Controls: WASD/arrows drive or walk, Space hop off/on near the mower, B blades, H find grass on minimap, M sound, Q quality, P/Escape pause, R restart, C key guide, F3 FPS. The key guide folds away once you start moving and comes back while paused. Gamepad: sticks move/steer, triggers drive/reverse, A mount, B blades, X highlight, Y mute, Start pause. Touch arrows and action buttons are on screen.
+Controls: WASD/arrows drive or walk, Space hop off/on near the mower, B blades, H find grass (missed patches glow on the lawn and minimap), M sound, Q quality, P/Escape pause, R restart, C key guide, F3 FPS. The key guide folds away once you start moving and comes back while paused. Gamepad: sticks move/steer, triggers drive/reverse, A mount, B blades, X highlight, Y mute, Start pause. Touch arrows and action buttons are on screen.
 
 See [Babylon migration notes](babylon/README.md) for validation and known limits.
 
@@ -227,7 +227,7 @@ The full plan is in the project's improvement plan document.
 | 6. Realism pass: lighting, thicker grass, real stripes, photo textures | Done |
 | 7. Graphics upgrade toward the target image: grass and camera, desktop build, mower, bigger yard, HUD with fuel and gamepad | Done |
 | 8. Unreal Engine 5 version alongside Godot: gameplay ported to C++ (done), playable yard with stand-in shapes (done), Fab art in the editor (next) | In progress |
-| 9. Babylon.js browser edition: migration and graphics pass (done), smaller download, phones start on Low, Babylon credits (done), folding key guide and photo textures (done), missed-grass highlight and clippings, richer sound, bigger yard (next) | In progress |
+| 9. Babylon.js browser edition: migration and graphics pass (done), smaller download, phones start on Low, Babylon credits (done), folding key guide, photo textures, missed grass glowing on the lawn, clippings, richer sound and the 30 x 36 m yard (done) | Done |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling

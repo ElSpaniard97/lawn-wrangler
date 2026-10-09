@@ -10,7 +10,7 @@ import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTextur
 import { Texture } from '@babylonjs/core/Materials/Textures/texture.js';
 import { MaterialPluginBase } from '@babylonjs/core/Materials/materialPluginBase.js';
 import '@babylonjs/core/Meshes/thinInstanceMesh.js';
-import { BLOCKED } from './lawn.js';
+import { BLOCKED, YARD, trees } from './lawn.js';
 
 // Models are generated locally; scenery uses the photo textures shared with the Godot
 // edition (listed in ASSET_LICENSES.md). Vite bundles them, so nothing loads from a CDN.
@@ -136,7 +136,11 @@ export function buildGraphics(scene, shadows, lawn) {
   }
 
   // Residential yard: siding, trim, porch, pergola, planted borders.
+  // The house and patio are modelled at fixed spots and shifted into place, so they follow YARD.
+  function shifted(dx,dz,build){const first=scene.meshes.length;build();for(const m of scene.meshes.slice(first)){m.position.x+=dx;m.position.z+=dz;}}
+  const HX=YARD.halfX,HZ=YARD.halfZ;
   box('outer ground',100,.15,100,0,-.18,0,lawnBase,null,false);
+  shifted(12-HX,0,()=>{
   box('house siding',8,4.6,14,-17,2.3,-4,siding);
   box('foundation',8.1,.45,14.1,-17,.22,-4,edging);
   for (const x of [-19.2,-14.8]) {
@@ -165,15 +169,17 @@ export function buildGraphics(scene, shadows, lawn) {
   box('door',.14,2.4,1.1,-12.8,1.5,-4.2,glass);
   sphere('door handle',.07,.07,.07,-12.68,1.45,-3.83,steel);
   box('gas can',.3,.45,.25,-9,.3,-4,material('gas can red','#c3462b',.1));
+  });
 
-  for (let z=-15.6;z<=15.6;z+=.32) box('fence board',.12,2.1,.3,12.65,1.05,z,cedar);
-  for (const z of [-15.7,15.7]) {
-    for(let x=-12.5;x<=12.5;x+=.32)box('fence board',.3,2.1,.12,x,1.05,z,cedar);
-    for(let x=-12.5;x<=12.5;x+=2.5)box('fence post',.18,2.25,.18,x,1.125,z,cedar);
-    for(const y of [.5,1.55])box('fence rail',25,.12,.12,0,y,z-.13,cedar);
+  for (let z=-HZ-.6;z<=HZ+.6;z+=.32) box('fence board',.12,2.1,.3,HX+.65,1.05,z,cedar);
+  for (const z of [-HZ-.7,HZ+.7]) {
+    for(let x=-HX-.5;x<=HX+.5;x+=.32)box('fence board',.3,2.1,.12,x,1.05,z,cedar);
+    for(let x=-HX-.5;x<=HX+.5;x+=2.5)box('fence post',.18,2.25,.18,x,1.125,z,cedar);
+    for(const y of [.5,1.55])box('fence rail',HX*2+1,.12,.12,0,y,z-Math.sign(z)*.13,cedar);
   }
-  for(let z=-15;z<=15;z+=2.5)box('fence post',.2,2.25,.2,12.65,1.125,z,cedar);
-  for(const y of [.5,1.55])box('fence rail',.12,.12,31,12.5,y,0,cedar);
+  for(let z=-HZ;z<=HZ;z+=2.5)box('fence post',.2,2.25,.2,HX+.65,1.125,z,cedar);
+  for(const y of [.5,1.55])box('fence rail',.12,.12,HZ*2+1,HX+.5,y,0,cedar);
+  shifted(1,HZ-15,()=>{
   box('patio',8,.1,4,4,.04,12,stone);
   for(const x of [1,7])for(const z of [10.4,13.6])box('pergola post',.18,3,.18,x,1.5,z,cedar);
   for(const z of [10.4,13.6])box('pergola beam',6.8,.2,.18,4,3,z,cedar);
@@ -185,9 +191,9 @@ export function buildGraphics(scene, shadows, lawn) {
     box('chair back',.55,.65,.07,x,.85,12.3,plastic);
     for(const dx of [-.2,.2])for(const dz of [-.2,.2])rod('chair leg',[x+dx,0,12+dz],[x+dx,.55,12+dz],.04,steel);
   }
+  });
 
-  const treeSpecs=[[10,8],[10,-10],[-11,9]];
-  for(const [x,z] of treeSpecs) {
+  for(const [x,z] of trees) {
     cylinder('tree trunk',.42,4.2,x,2.1,z,bark,null,.22);
     for(let i=0;i<7;i++) {
       const angle=i*6.28/7;
@@ -202,8 +208,8 @@ export function buildGraphics(scene, shadows, lawn) {
     cylinder('tree mulch ring',1.35,.045,x,.03,z,mulch);
     const ring=MeshBuilder.CreateTorus('stone ring',{diameter:1.4,thickness:.12,tessellation:28},scene);ring.position.set(x,.075,z);finish(ring,edging);
   }
-  for (let side of [-1,1]) for(let i=0;i<10;i++) {
-    const x=side*12.25,z=-14+i*2.9;
+  for (let side of [-1,1]) for(let i=0;i<12;i++) {
+    const x=side*(HX+.25),z=-HZ+1.5+i*3;
     box('border mulch',.65,.04,2.65,x,.02,z,mulch,null,false);
     for(let dz=-1.15;dz<1.2;dz+=.35)box('border stone',.15,.12,.32,x-side*.38,.06,z+dz,edging);
     const leaves=[];
@@ -216,9 +222,9 @@ export function buildGraphics(scene, shadows, lawn) {
     }
   }
   // Distant roofs peek above the fence without cluttering the playable lawn.
-  for(const x of [-8,8]) {
-    box('neighbor house',7,4,6,x,2,22,siding);
-    for(const dx of [-1.8,1.8]){const r=box('neighbor roof',4.4,.18,7,x+dx,4.55,22,roofing);r.rotation.z=dx<0?.4:-.4;}
+  for(const x of [-9,9]) {
+    box('neighbor house',7,4,6,x,2,HZ+7,siding);
+    for(const dx of [-1.8,1.8]){const r=box('neighbor roof',4.4,.18,7,x+dx,4.55,HZ+7,roofing);r.rotation.z=dx<0?.4:-.4;}
   }
 
   // Detailed zero-turn mower, facing +Z to match the simulation.
@@ -321,15 +327,45 @@ export function buildGraphics(scene, shadows, lawn) {
     const center=lawn.center(id),x=center.x+(random()-.5)*lawn.cell,z=center.z+(random()-.5)*lawn.cell,h=.65+random()*.65,angle=random()*6.28;
     samples.push({x,z,h,angle,width:.65+random()*.7});const tint=.7+random()*.4;colors.set([tint,.85+random()*.15,.7+random()*.3,1],(id*perCell+j)*4);
   }
-  blade.thinInstanceSetBuffer('matrix',matrices,16,false);blade.thinInstanceSetBuffer('color',colors,4);
+  // Missed grass glows yellow-green while Find grass is on; cut cells keep their natural tint.
+  const baseColors=colors.slice(),glow=[1.45,1.4,.55,1];let highlight=false;
+  function tint(id){for(let j=0;j<perCell;j++){const i=(id*perCell+j)*4;if(highlight&&lawn.cells[id]===0)colors.set(glow,i);else colors.set(baseColors.subarray(i,i+4),i);}}
+  blade.thinInstanceSetBuffer('matrix',matrices,16,false);blade.thinInstanceSetBuffer('color',colors,4,false);
   function refreshGrass(ids) {
     for(const id of ids)for(let j=0;j<perCell;j++) {
       const index=id*perCell+j,s=samples[index],state=lawn.cells[id],h=state===BLOCKED||(quality==='medium'&&j%2)?0:state===0?s.h:.055;
       Matrix.Compose(new Vector3(s.width,h,1),Quaternion.RotationAxis(Vector3.Up(),s.angle),new Vector3(s.x,.018,s.z)).copyToArray(matrices,index*16);
     }
     blade.thinInstanceBufferUpdated('matrix');
+    if(highlight){for(const id of ids)tint(id);blade.thinInstanceBufferUpdated('color');}
   }
   refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));blade.thinInstanceRefreshBoundingInfo();
+  // Clippings: a small pool of thin-instanced flecks thrown from the chute or trimmer head.
+  const clip=MeshBuilder.CreateBox('clipping',{width:.08,height:.012,depth:.035},scene),clipMat=material('clippings','#a6c45a');clipMat.emissiveColor=new Color3(.12,.16,.04);clip.material=clipMat;clip.isPickable=false;clip.alwaysSelectAsActiveMesh=true;
+  const flecks=400,clipBuffer=new Float32Array(flecks*16),parts=Array.from({length:flecks},()=>({life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,spin:0}));let nextFleck=0,flying=false;
+  clip.thinInstanceSetBuffer('matrix',clipBuffer,16,false);
+  const fleckScale=new Vector3(),fleckRot=new Quaternion(),fleckPos=new Vector3(),fleckMatrix=new Matrix();
+  function spray(x,z,yaw,n,onMower) {
+    if(quality==='low')return;
+    const c=Math.cos(yaw),s=Math.sin(yaw),[lx,lz]=onMower?[1.05,.5]:[.22,1];
+    for(let k=0;k<n;k++){
+      const p=parts[nextFleck];nextFleck=(nextFleck+1)%flecks;
+      const a=random()*6.28,out=onMower?2+random()*1.6:.8+random()*1.2;
+      p.x=x+c*lx+s*lz;p.z=z-s*lx+c*lz;p.y=onMower?.4:.15;
+      p.vx=onMower?c*out+(random()-.5)*.8:Math.cos(a)*out;p.vz=onMower?-s*out+(random()-.5)*.8:Math.sin(a)*out;p.vy=onMower?1.6+random()*1.4:.9+random()*1.1;
+      p.life=.7+random()*.6;p.spin=random()*6.28;flying=true;
+    }
+  }
+  function updateClippings(dt) {
+    if(!flying)return;flying=false;
+    parts.forEach((p,i)=>{
+      if(p.life>0){p.life-=dt;p.vy-=6*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;p.spin+=dt*9;if(p.y<.02){p.y=.02;p.vx*=.5;p.vz*=.5;p.vy=0;}flying=true;}
+      const size=p.life>0?Math.min(1,p.life*3):0;fleckScale.set(size,size,size);
+      Quaternion.RotationYawPitchRollToRef(p.spin,p.spin*.7,0,fleckRot);fleckPos.set(p.x,p.y,p.z);
+      Matrix.ComposeToRef(fleckScale,fleckRot,fleckPos,fleckMatrix);fleckMatrix.copyToArray(clipBuffer,i*16);
+    });
+    clip.thinInstanceBufferUpdated('matrix');
+  }
   // Merge static scenery by material to keep the richer yard affordable to draw.
   const groups=new Map();
   for(const mesh of [...scene.meshes])if(mesh!==blade&&!mesh.parent&&!mesh.thinInstanceCount){
@@ -344,5 +380,5 @@ export function buildGraphics(scene, shadows, lawn) {
   const skyGradient=skyContext.createLinearGradient(0,0,0,1024);skyGradient.addColorStop(0,'#dbe5d9');skyGradient.addColorStop(.5,'#86bddc');skyGradient.addColorStop(1,'#3682c4');skyContext.fillStyle=skyGradient;skyContext.fillRect(0,0,2048,1024);
   for(let i=0;i<35;i++){const x=random()*2048,y=550+random()*250;for(let j=0;j<10;j++){skyContext.fillStyle='#ffffff20';skyContext.beginPath();skyContext.ellipse(x+(random()-.5)*150,y+(random()-.5)*35,30+random()*65,10+random()*24,0,0,6.28);skyContext.fill();}}
   skyTexture.update();const sky=MeshBuilder.CreateSphere('sky dome',{diameter:160,segments:32,sideOrientation:Mesh.BACKSIDE},scene),skyMaterial=material('sky material','#000000');skyMaterial.disableLighting=true;skyMaterial.emissiveColor=Color3.Black();skyMaterial.emissiveTexture=skyTexture;sky.material=skyMaterial;sky.isPickable=false;sky.infiniteDistance=true;
-  return {mower,driver,walker,blade,refreshGrass,lawnBase,update(dt,speed){wind.time+=dt;for(const {pivot,r} of wheels)pivot.rotation.y-=speed*dt/r;},setQuality(q){quality=q;refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
+  return {mower,driver,walker,blade,refreshGrass,lawnBase,spray,setHighlight(on){if(on===highlight)return;highlight=on;for(let id=0;id<lawn.cells.length;id++)tint(id);blade.thinInstanceBufferUpdated('color');},update(dt,speed){wind.time+=dt;updateClippings(dt);for(const {pivot,r} of wheels)pivot.rotation.y-=speed*dt/r;},setQuality(q){quality=q;refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
 }
