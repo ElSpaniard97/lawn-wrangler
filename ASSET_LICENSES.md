@@ -8,6 +8,8 @@ comes from outside the project.
 Any asset added later must be listed here with where it came from and its
 license, and must be a plain image or sound file. The tests check that each
 texture the game uses is a JPEG in `godot/textures/` and is listed here.
+The Babylon browser edition uses the same files from `godot/textures/`
+(see `babylon/graphics.js`); Vite copies them into the web build.
 
 ## Photo textures
 

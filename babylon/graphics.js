@@ -7,11 +7,22 @@ import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
+import { Texture } from '@babylonjs/core/Materials/Textures/texture.js';
 import { MaterialPluginBase } from '@babylonjs/core/Materials/materialPluginBase.js';
 import '@babylonjs/core/Meshes/thinInstanceMesh.js';
 import { BLOCKED } from './lawn.js';
 
-// All artwork is generated locally. No downloads, paid assets or image CDN.
+// Models are generated locally; scenery uses the photo textures shared with the Godot
+// edition (listed in ASSET_LICENSES.md). Vite bundles them, so nothing loads from a CDN.
+const photos={
+  grass:new URL('../godot/textures/grass.jpg',import.meta.url).href,
+  wood:new URL('../godot/textures/wood.jpg',import.meta.url).href,
+  siding:new URL('../godot/textures/siding_white.jpg',import.meta.url).href,
+  shingles:new URL('../godot/textures/shingles.jpg',import.meta.url).href,
+  stone:new URL('../godot/textures/stone.jpg',import.meta.url).href,
+  mulch:new URL('../godot/textures/mulch.jpg',import.meta.url).href,
+  pavers:new URL('../godot/textures/pavers.jpg',import.meta.url).href,
+};
 export function buildGraphics(scene, shadows, lawn) {
   let seed = 7429;
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -45,19 +56,37 @@ export function buildGraphics(scene, shadows, lawn) {
     t.update(); m.diffuseTexture = t;
     return m;
   }
+  // Photo materials repeat every `tile` metres; UVs are projected from world space before merging.
+  const tiles=new Map();
+  function photo(name,file,tile,tint='#ffffff') {
+    const m=material(name,tint),t=new Texture(photos[file],scene);
+    m.diffuseTexture=t;tiles.set(m,tile);return m;
+  }
+  function worldUVs(mesh,tile) {
+    const p=mesh.getVerticesData('position'),n=mesh.getVerticesData('normal');if(!p||!n)return;
+    const world=mesh.computeWorldMatrix(true),uv=new Float32Array(p.length/3*2),v=new Vector3(),w=new Vector3();
+    for(let i=0;i<p.length/3;i++) {
+      Vector3.TransformCoordinatesFromFloatsToRef(p[i*3],p[i*3+1],p[i*3+2],world,v);
+      Vector3.TransformNormalFromFloatsToRef(n[i*3],n[i*3+1],n[i*3+2],world,w);
+      const ax=Math.abs(w.x),ay=Math.abs(w.y),az=Math.abs(w.z),[a,b]=ay>=ax&&ay>=az?[v.x,v.z]:ax>=az?[v.z,v.y]:[v.x,v.y];
+      uv[i*2]=a/tile;uv[i*2+1]=b/tile;
+    }
+    mesh.setVerticesData('uv',uv);
+  }
   const orange = material('powder-coated orange', '#f07b16', .3);
   const plastic = material('mower plastic', '#252b2a', .12);
   const rubber = material('tire rubber', '#161c19');
   const steel = material('brushed metal', '#858f89', .55);
   const black = material('seat upholstery', '#171d1d', .05);
   const white = material('white trim', '#eee9df', .05);
-  const siding = textured('clapboard', '#d9d4bf', 'siding');
-  const cedar = textured('cedar grain', '#a68b62', 'wood');
-  const bark = textured('bark', '#75634c', 'wood');
-  const roofing = textured('shingles', '#52585a', 'roof');
-  const stone = textured('pavers', '#b8b5a8', 'pavers');
-  const mulch = textured('mulch', '#584837', 'wood');
-  const lawnBase = textured('lawn texture', '#628532', 'noise');
+  const siding = photo('clapboard','siding',2);
+  const cedar = photo('cedar boards','wood',1);
+  const bark = photo('bark','wood',.8,'#8a7c70');
+  const roofing = photo('shingles','shingles',2);
+  const stone = photo('pavers','pavers',1.5);
+  const edging = photo('edging stone','stone',.8);
+  const mulch = photo('mulch','mulch',.8);
+  const lawnBase = photo('lawn texture','grass',1.6,'#d8e0c8');
   const glass = material('window glass', '#517b8e', .6);
   const shirt = textured('cotton shirt', '#414a50', 'noise');
   const jeans = material('denim', '#3a5770');
@@ -109,7 +138,7 @@ export function buildGraphics(scene, shadows, lawn) {
   // Residential yard: siding, trim, porch, pergola, planted borders.
   box('outer ground',100,.15,100,0,-.18,0,lawnBase,null,false);
   box('house siding',8,4.6,14,-17,2.3,-4,siding);
-  box('foundation',8.1,.45,14.1,-17,.22,-4,stone);
+  box('foundation',8.1,.45,14.1,-17,.22,-4,edging);
   for (const x of [-19.2,-14.8]) {
     const roof=box('pitched roof',5.4,.22,15.2,x,5.05,-4,roofing);
     roof.rotation.z=x<-17?.42:-.42;
@@ -124,11 +153,11 @@ export function buildGraphics(scene, shadows, lawn) {
     box('window sash',.15,.05,1.35,-12.75,2.85,z,white);
     box('window sill',.3,.12,1.75,-12.7,2.05,z,white);
   }
-  box('porch floor',3.2,.27,10,-11.2,.135,-4,stone);
+  box('porch floor',3.2,.27,10,-11.2,.135,-4,cedar);
   box('porch step',.5,.12,5.5,-9.35,.06,-4,stone);
   for (const z of [-8.6,.6]) {
     box('porch column',.22,3.3,.22,-9.85,1.85,z,cedar);
-    box('stone column base',.48,.65,.48,-9.85,.55,z,stone);
+    box('stone column base',.48,.65,.48,-9.85,.55,z,edging);
   }
   const porchRoof=box('porch canopy',3.55,.18,10.5,-11.3,3.75,-4,roofing);porchRoof.rotation.z=-.12;
   box('porch beam',.22,.28,10,-9.75,3.4,-4,cedar);
@@ -171,12 +200,12 @@ export function buildGraphics(scene, shadows, lawn) {
     }
     foliage('tree canopy',leaves,.23,true);
     cylinder('tree mulch ring',1.35,.045,x,.03,z,mulch);
-    const ring=MeshBuilder.CreateTorus('stone ring',{diameter:1.4,thickness:.12,tessellation:28},scene);ring.position.set(x,.075,z);finish(ring,stone);
+    const ring=MeshBuilder.CreateTorus('stone ring',{diameter:1.4,thickness:.12,tessellation:28},scene);ring.position.set(x,.075,z);finish(ring,edging);
   }
   for (let side of [-1,1]) for(let i=0;i<10;i++) {
     const x=side*12.25,z=-14+i*2.9;
     box('border mulch',.65,.04,2.65,x,.02,z,mulch,null,false);
-    for(let dz=-1.15;dz<1.2;dz+=.35)box('border stone',.15,.12,.32,x-side*.38,.06,z+dz,stone);
+    for(let dz=-1.15;dz<1.2;dz+=.35)box('border stone',.15,.12,.32,x-side*.38,.06,z+dz,edging);
     const leaves=[];
     for(let j=0;j<100;j++){const a=random()*6.28,r=Math.sqrt(random())*.48;leaves.push([x+Math.cos(a)*r,.25+random()*.6,z+Math.sin(a)*r]);}
     foliage('border shrubs',leaves,.16);
@@ -306,6 +335,7 @@ export function buildGraphics(scene, shadows, lawn) {
   for(const mesh of [...scene.meshes])if(mesh!==blade&&!mesh.parent&&!mesh.thinInstanceCount){
     const group=groups.get(mesh.material)||[];group.push(mesh);groups.set(mesh.material,group);
   }
+  for(const [m,meshes] of groups)if(tiles.has(m))for(const mesh of meshes)worldUVs(mesh,tiles.get(m));
   for(const meshes of groups.values())if(meshes.length>1){
     for(const mesh of meshes){mesh.computeWorldMatrix(true);shadows.removeShadowCaster(mesh);}
     const merged=Mesh.MergeMeshes(meshes,true,true);if(merged){merged.receiveShadows=true;shadows.addShadowCaster(merged);}
