@@ -18,7 +18,7 @@ npm run build
 
 ## Migrated gameplay
 
-- Mower acceleration/reverse/steering, actual movement speed and obstacle collisions.
+- Mower acceleration/reverse, zero-turn steering (it pivots in place when stopped), actual movement speed and obstacle collisions.
 - Directional cut stripes and swept grass cutting without frame gaps.
 - Dismount/remount proximity and walking weed eater for narrow edges.
 - Blocked house/porch, patio and tree rings excluded from lawn coverage.
@@ -43,7 +43,7 @@ The house gained gable ends, a stone chimney and foundation, stone column bases,
 
 ## Reference-inspired graphics pass
 
-The browser scene now uses a detailed procedural zero-turn mower (treaded wheels, fan grille, engine fins, discharge chute, lap bars and fuel tanks), a rounded driver with a cap and hearing protection, and a matching walking landscaper. The garden adds siding, pitched shingle roofs, window trim, a covered porch, wood-grain fencing, flowers, branching trees with instanced leaves, and a furnished pergola patio.
+The browser scene now uses a detailed procedural zero-turn mower (treaded wheels, fan grille, engine fins, discharge chute, lap bars and fuel tanks), a rounded driver with a cap and hearing protection, and a matching walking landscaper. Wheels roll by the distance each one travels, the driver leans into turns, and on foot the legs stride while the weed eater sweeps side to side with a spinning line. The garden adds siding, pitched shingle roofs, window trim, a covered porch, wood-grain fencing, flowers, branching trees with instanced leaves, and a furnished pergola patio.
 
 Grass is now a curved ribbon with randomized height, heading and color, plus a gentle GPU wind effect. Cut grass retains directional color and short stubble; the coverage texture fills its actual GPU dimensions and updates only changed cells. Static scenery is merged by material to limit draw calls. High uses 18 blades per cell, Medium 9 distributed throughout the yard, and Low uses the lawn surface without blades or shadows.
 
