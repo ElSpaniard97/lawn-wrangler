@@ -11,6 +11,22 @@ texture the game uses is a JPEG in `godot/textures/` and is listed here.
 The Babylon browser edition uses the same files from `godot/textures/`
 (see `babylon/graphics.js`); Vite copies them into the web build.
 
+## Browser-only textures
+
+Source: a second texture sheet supplied by the project owner, Zeke, on
+2026-10-09. Each was cropped from the sheet; the tiling ones were blended to
+repeat seamlessly. Only the Babylon browser edition uses these.
+
+| File | Used for |
+| --- | --- |
+| `babylon/textures/sky_partly_cloudy.jpg` | The sky dome |
+| `babylon/textures/siding_gray.jpg` | The left neighbour's house |
+| `babylon/textures/stone_accent.jpg` | House foundation, chimney and porch column bases |
+| `babylon/textures/gravel.jpg` | River-rock beds along the house |
+| `babylon/textures/window.jpg` | Windows on the house and neighbours |
+| `babylon/textures/front_door.jpg` | The front door |
+| `babylon/textures/lawn_detail.jpg` | The lawn and outer grass: `godot/textures/grass.jpg` softened and brightened |
+
 ## Photo textures
 
 Source: a texture sheet supplied by the project owner, Zeke, on 2026-10-06.
