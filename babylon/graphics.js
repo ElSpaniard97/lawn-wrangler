@@ -14,7 +14,7 @@ import { BLOCKED, YARD, trees } from './lawn.js';
 
 // Models are generated locally; scenery uses the photo textures shared with the Godot
 // edition (listed in ASSET_LICENSES.md). Vite bundles them, so nothing loads from a CDN.
-const photos={
+export const photos={
   grass:new URL('../godot/textures/grass.jpg',import.meta.url).href,
   wood:new URL('../godot/textures/wood.jpg',import.meta.url).href,
   siding:new URL('../godot/textures/siding_white.jpg',import.meta.url).href,
@@ -22,6 +22,15 @@ const photos={
   stone:new URL('../godot/textures/stone.jpg',import.meta.url).href,
   mulch:new URL('../godot/textures/mulch.jpg',import.meta.url).href,
   pavers:new URL('../godot/textures/pavers.jpg',import.meta.url).href,
+  leaves:new URL('../godot/textures/leaves.jpg',import.meta.url).href,
+  lawn:new URL('./textures/lawn_detail.jpg',import.meta.url).href,
+  // Cut from Zeke's second texture sheet (2026-10-09); only the browser edition uses these.
+  sidingGray:new URL('./textures/siding_gray.jpg',import.meta.url).href,
+  stoneAccent:new URL('./textures/stone_accent.jpg',import.meta.url).href,
+  gravel:new URL('./textures/gravel.jpg',import.meta.url).href,
+  window:new URL('./textures/window.jpg',import.meta.url).href,
+  door:new URL('./textures/front_door.jpg',import.meta.url).href,
+  sky:new URL('./textures/sky_partly_cloudy.jpg',import.meta.url).href,
 };
 export function buildGraphics(scene, shadows, lawn) {
   let seed = 7429;
@@ -73,7 +82,7 @@ export function buildGraphics(scene, shadows, lawn) {
     }
     mesh.setVerticesData('uv',uv);
   }
-  const orange = material('powder-coated orange', '#f07b16', .3);
+  const orange = material('powder-coated orange', '#e2560c', .35);
   const plastic = material('mower plastic', '#252b2a', .12);
   const rubber = material('tire rubber', '#161c19');
   const steel = material('brushed metal', '#858f89', .55);
@@ -86,12 +95,17 @@ export function buildGraphics(scene, shadows, lawn) {
   const stone = photo('pavers','pavers',1.5);
   const edging = photo('edging stone','stone',.8);
   const mulch = photo('mulch','mulch',.8);
-  const lawnBase = photo('lawn texture','grass',1.6,'#d8e0c8');
-  const glass = material('window glass', '#517b8e', .6);
+  const lawnBase = photo('lawn texture','lawn',1.6,'#b4bea4');
+  const sidingGray = photo('gray clapboard','sidingGray',2);
+  const stoneAccent = photo('stone veneer','stoneAccent',1.2);
+  const gravel = photo('river rock','gravel',.9);
+  // Windows and the front door are single photos on planes, not tiled.
+  function picture(name,file,shine=.2){const m=material(name,'#ffffff',shine);m.diffuseTexture=new Texture(photos[file],scene);return m;}
+  const windowPhoto = picture('window photo','window',.5),doorPhoto = picture('door photo','door',.3);
   const shirt = textured('cotton shirt', '#414a50', 'noise');
   const jeans = material('denim', '#3a5770');
   const skin = material('skin', '#c99d79', .08);
-  const green = material('leaf green', '#6a8c33'); green.backFaceCulling = false;
+  const green = material('leaf green', '#9fbf6a'); green.backFaceCulling = false; green.diffuseTexture = new Texture(photos.leaves, scene);
   const pink = material('pink petals', '#d56c9e');
   const cream = material('white petals', '#fff3cf');
 
@@ -113,6 +127,14 @@ export function buildGraphics(scene, shadows, lawn) {
   function cylinder(name, diameter, height, x, y, z, m, parent, top = diameter) {
     const o = MeshBuilder.CreateCylinder(name, { diameterBottom: diameter, diameterTop: top, height, tessellation: 20 }, scene);
     o.position.set(x, y, z); return finish(o, m, parent);
+  }
+  // A picture plane facing +x, -z or +z (yaw), e.g. a window photo on a wall.
+  function pane(name,w,h,x,y,z,yaw,m){const o=MeshBuilder.CreatePlane(name,{width:w,height:h},scene);o.position.set(x,y,z);o.rotation.y=yaw;return finish(o,m,null,false);}
+  // A gable end: a triangle of wall under the roof, facing both ways.
+  function gable(name,w,rise,x,y,z,m,alongX=true){
+    const o=new Mesh(name,scene),d=new VertexData(),p=alongX?[-w/2,0,0,w/2,0,0,0,rise,0]:[0,0,-w/2,0,0,w/2,0,rise,0];
+    d.positions=[...p,...p];d.indices=[0,1,2,3,5,4];d.normals=[];VertexData.ComputeNormals(d.positions,d.indices,d.normals);d.uvs=[0,0,1,0,.5,1,0,0,1,0,.5,1];d.applyToMesh(o);
+    o.position.set(x,y,z);return finish(o,m);
   }
   function rod(name, a, b, diameter, m, parent) {
     const from = new Vector3(...a), to = new Vector3(...b), direction = to.subtract(from);
@@ -142,7 +164,10 @@ export function buildGraphics(scene, shadows, lawn) {
   box('outer ground',100,.15,100,0,-.18,0,lawnBase,null,false);
   shifted(12-HX,0,()=>{
   box('house siding',8,4.6,14,-17,2.3,-4,siding);
-  box('foundation',8.1,.45,14.1,-17,.22,-4,edging);
+  box('foundation',8.1,.45,14.1,-17,.22,-4,stoneAccent);
+  for(const z of [-11,3])gable('gable end',8,1.45,-17,4.6,z,siding);
+  box('chimney',.9,3.4,.9,-19,5.1,1.6,stoneAccent);box('chimney cap',1.05,.12,1.05,-19,6.85,1.6,edging);
+  for(const x of [-19,-15])for(const [z,yaw] of [[3.02,Math.PI],[-11.02,0]]){box('window trim',1.5,1.65,.06,x,2.85,z,white);pane('window',1.3,1.42,x,2.85,z+(yaw?.04:-.04),yaw,windowPhoto);}
   for (const x of [-19.2,-14.8]) {
     const roof=box('pitched roof',5.4,.22,15.2,x,5.05,-4,roofing);
     roof.rotation.z=x<-17?.42:-.42;
@@ -152,22 +177,19 @@ export function buildGraphics(scene, shadows, lawn) {
   for (const z of [-10.7,2.7]) cylinder('downpipe',.08,4.3,-12.75,2.15,z,white);
   for (const z of [-8.6,-3.7,.6]) {
     box('window frame',.12,1.65,1.55,-12.93,2.85,z,white);
-    box('window glass',.13,1.42,1.3,-12.84,2.85,z,glass);
-    box('window mullion',.15,1.43,.04,-12.75,2.85,z,white);
-    box('window sash',.15,.05,1.35,-12.75,2.85,z,white);
+    pane('window',1.3,1.42,-12.86,2.85,z,-Math.PI/2,windowPhoto);
     box('window sill',.3,.12,1.75,-12.7,2.05,z,white);
   }
   box('porch floor',3.2,.27,10,-11.2,.135,-4,cedar);
   box('porch step',.5,.12,5.5,-9.35,.06,-4,stone);
   for (const z of [-8.6,.6]) {
     box('porch column',.22,3.3,.22,-9.85,1.85,z,cedar);
-    box('stone column base',.48,.65,.48,-9.85,.55,z,edging);
+    box('stone column base',.5,.75,.5,-9.85,.5,z,stoneAccent);box('column cap',.58,.06,.58,-9.85,.9,z,edging);
   }
   const porchRoof=box('porch canopy',3.55,.18,10.5,-11.3,3.75,-4,roofing);porchRoof.rotation.z=-.12;
   box('porch beam',.22,.28,10,-9.75,3.4,-4,cedar);
   box('door frame',.12,2.6,1.3,-12.91,1.55,-4.2,white);
-  box('door',.14,2.4,1.1,-12.8,1.5,-4.2,glass);
-  sphere('door handle',.07,.07,.07,-12.68,1.45,-3.83,steel);
+  pane('front door',1.1,2.4,-12.84,1.5,-4.2,-Math.PI/2,doorPhoto);
   box('gas can',.3,.45,.25,-9,.3,-4,material('gas can red','#c3462b',.1));
   });
 
@@ -210,7 +232,8 @@ export function buildGraphics(scene, shadows, lawn) {
   }
   for (let side of [-1,1]) for(let i=0;i<12;i++) {
     const x=side*(HX+.25),z=-HZ+1.5+i*3;
-    box('border mulch',.65,.04,2.65,x,.02,z,mulch,null,false);
+    // River rock along the house side, bark mulch along the fence.
+    box('border bed',.65,.04,2.65,x,.02,z,side<0?gravel:mulch,null,false);
     for(let dz=-1.15;dz<1.2;dz+=.35)box('border stone',.15,.12,.32,x-side*.38,.06,z+dz,edging);
     const leaves=[];
     for(let j=0;j<100;j++){const a=random()*6.28,r=Math.sqrt(random())*.48;leaves.push([x+Math.cos(a)*r,.25+random()*.6,z+Math.sin(a)*r]);}
@@ -221,79 +244,162 @@ export function buildGraphics(scene, shadows, lawn) {
       sphere('flower',.12,.07,.12,fx,fy,fz,i%2?pink:cream,null,false);
     }
   }
+  // A ring of distant shade trees closes off the horizon, like the tree line in the reference.
+  const distantLeaves=material('distant leaves','#93ad6a');distantLeaves.diffuseTexture=new Texture(photos.leaves,scene);distantLeaves.diffuseTexture.uScale=3;distantLeaves.diffuseTexture.vScale=2;
+  for(let i=0;i<44;i++){
+    const a=i/44*6.28+random()*.08,r=46+random()*12,x=Math.cos(a)*r,z=Math.sin(a)*r,h=6+random()*5;
+    cylinder('distant trunk',.6,h*.5,x,h*.25,z,bark);
+    for(let j=0;j<3;j++)sphere('distant crown',h*.55+random()*2,h*.45+random()*1.5,h*.55+random()*2,x+(random()-.5)*2.5,h*.62+random()*1.5,z+(random()-.5)*2.5,distantLeaves,null,false);
+  }
   // Distant roofs peek above the fence without cluttering the playable lawn.
   for(const x of [-9,9]) {
-    box('neighbor house',7,4,6,x,2,HZ+7,siding);
+    box('neighbor house',7,4,6,x,2,HZ+7,x<0?sidingGray:siding);
+    gable('neighbor gable',7,1.3,x,4,HZ+3.98,x<0?sidingGray:siding);
+    for(const dx of [-1.6,1.6]){box('neighbor window trim',1.2,1.35,.05,x+dx,2.2,HZ+3.97,white);pane('neighbor window',1.05,1.2,x+dx,2.2,HZ+3.94,0,windowPhoto);}
     for(const dx of [-1.8,1.8]){const r=box('neighbor roof',4.4,.18,7,x+dx,4.55,HZ+7,roofing);r.rotation.z=dx<0?.4:-.4;}
   }
 
-  // Detailed zero-turn mower, facing +Z to match the simulation.
+  // Detailed zero-turn mower modelled on the reference: orange frame and deck, black body,
+  // rounded fenders over big treaded tyres, high-back seat, lap bars and a fan-cooled engine.
+  // It faces +Z to match the simulation; the chase camera sees the engine end.
   const mower=new TransformNode('mower',scene),wheels=[];
-  box('cutting deck',1.75,.17,.95,0,.23,.48,orange,mower);
-  box('deck skirt',1.78,.06,.98,0,.15,.48,plastic,mower);
-  for(const x of [-.5,0,.5])cylinder('spindle cover',.19,.05,x,.34,.5,plastic,mower);
-  const chute=box('discharge chute',.38,.12,.5,.99,.22,.5,plastic,mower);chute.rotation.z=-.2;
-  for(const x of [-.4,.4])box('frame rail',.08,.14,1.55,x,.38,-.05,orange,mower);
-  box('rear bumper',1.05,.22,.14,0,.37,-.94,orange,mower);
-  box('body pan',.78,.22,.72,0,.53,.05,plastic,mower);
-  box('foot platform',.8,.05,.42,0,.47,.64,steel,mower);
-  for(let z=.49;z<.82;z+=.06)box('footplate grooves',.73,.01,.015,0,.502,z,plastic,mower);
-  box('seat cushion',.61,.13,.53,0,.81,-.07,black,mower);
-  const back=box('high-back seat',.61,.64,.13,0,1.11,-.36,black,mower);back.rotation.x=.1;
-  for(const x of [-.27,.27])sphere('seat bolster',.13,.52,.16,x,1.08,-.29,black,mower);
-  for(const x of [-.72,.72]) {
-    box('fender',.42,.1,.78,x,.72,-.48,plastic,mower);
-    box('control tower',.22,.36,.3,x*.65,.76,.06,plastic,mower);
-    cylinder('cup holder',.1,.035,x*.65,.96,.03,black,mower);
-    rod('lap bar',[x*.65,.87,.16],[x*.65,1.14,.32],.035,steel,mower);
-    rod('bar grip',[x*.65,1.14,.32],[x*.2,1.14,.34],.045,black,mower);
-    box('fuel tank',.25,.22,.34,x*.67,.78,-.65,plastic,mower);
-    cylinder('fuel cap',.09,.045,x*.67,.915,-.66,orange,mower);
+  const gloss=material('gloss black','#1d2122',.35);gloss.specularPower=40;
+  const chrome=material('chrome','#c8cfd2',.9);chrome.specularPower=96;
+  const decal=material('deck decal','#f4efe2',.1);
+  // A rounded slab: two crossed boxes with cylinders on the corners.
+  function slab(name,w,h,d,r,x,y,z,m,parent){
+    box(name,w-2*r,h,d,x,y,z,m,parent);box(name,w,h,d-2*r,x,y,z,m,parent);
+    for(const sx of [-1,1])for(const sz of [-1,1])cylinder(name,r*2,h,x+sx*(w/2-r),y,z+sz*(d/2-r),m,parent);
   }
-  box('engine block',.68,.34,.46,0,.65,-.68,plastic,mower);
-  cylinder('engine fan housing',.51,.12,0,.9,-.67,black,mower);
-  cylinder('fan grille',.42,.025,0,.975,-.67,steel,mower);
-  for(let x=-.17;x<=.17;x+=.055)for(let z=-.82;z<-.5;z+=.055)cylinder('fan hole',.025,.03,x,.995,z,black,mower);
-  for(let x=-.28;x<=.28;x+=.045)box('cooling fins',.02,.23,.015,x,.68,-.923,steel,mower);
-  const exhaust=cylinder('muffler',.14,.45,0,.45,-.98,steel,mower);exhaust.rotation.z=Math.PI/2;
-  for(const [x,z,r,w] of [[-.73,-.48,.36,.31],[.73,-.48,.36,.31],[-.57,.86,.15,.14],[.57,.86,.15,.14]]) {
+  function lathe(name,profile,m,parent,tessellation=32){
+    const o=MeshBuilder.CreateLathe(name,{shape:profile.map(([r,y])=>new Vector3(r,y,0)),tessellation,closed:true},scene);
+    return finish(o,m,parent);
+  }
+  // Cutting deck: orange with a rolled front edge, black spindle covers and a side chute.
+  slab('cutting deck',1.8,.16,.92,.2,0,.24,.5,orange,mower);
+  slab('deck lip',1.84,.05,.96,.22,0,.15,.5,gloss,mower);
+  for(const x of [-.5,0,.5]){cylinder('spindle cover',.24,.06,x,.34,.52,gloss,mower);cylinder('spindle cap',.08,.04,x,.38,.52,chrome,mower);}
+  const chute=box('discharge chute',.3,.1,.4,1.0,.22,.5,gloss,mower);chute.rotation.z=-.25;
+  box('deck stripe',1.5,.005,.06,0,.322,.2,decal,mower);
+  // Orange tube frame: side rails, rear bumper loop and engine guard.
+  for(const x of [-.42,.42]){rod('frame rail',[x,.36,-.92],[x,.36,.86],.09,orange,mower);rod('frame riser',[x,.36,.62],[x,.52,.72],.08,orange,mower);}
+  rod('rear bumper',[-.5,.42,-1.02],[.5,.42,-1.02],.09,orange,mower);
+  for(const x of [-.5,.5])rod('bumper corner',[x,.42,-1.02],[x*.84,.36,-.88],.09,orange,mower);
+  for(const x of [-.36,.36])rod('engine guard',[x,.42,-1.02],[x,.86,-.98],.06,orange,mower);
+  rod('guard top',[-.36,.86,-.98],[.36,.86,-.98],.06,orange,mower);
+  // Body, foot plate and the front casters' cross bar.
+  slab('body pan',.86,.22,.86,.12,0,.55,-.02,gloss,mower);
+  slab('foot platform',.82,.05,.44,.06,0,.5,.66,steel,mower);
+  for(let z=.5;z<.84;z+=.055)box('footplate tread',.72,.012,.018,0,.53,z,gloss,mower);
+  rod('caster bar',[-.62,.52,.86],[.62,.52,.86],.1,orange,mower);
+  // Rounded fenders over the drive tyres, with cup holders and fuel tanks on top.
+  for(const x of [-.73,.73]){
+    // Half a hollow cylinder, turned so its axis runs along the axle and the arc covers the top.
+    const fender=MeshBuilder.CreateCylinder('fender',{diameter:.9,height:.4,arc:.5,tessellation:28,cap:Mesh.NO_CAP,sideOrientation:Mesh.DOUBLESIDE},scene);
+    fender.position.set(x,.36,-.48);fender.rotationQuaternion=Quaternion.RotationAxis(Vector3.Right(),Math.PI/2).multiply(Quaternion.RotationAxis(Vector3.Forward(),Math.PI/2));finish(fender,gloss,mower);
+    box('fender lip',.4,.03,.04,x,.37,-.03,gloss,mower);
+    slab('fuel tank',.26,.14,.34,.06,x*.88,.84,-.62,gloss,mower);
+    cylinder('fuel cap',.09,.04,x*.88,.93,-.6,orange,mower);
+    slab('control tower',.18,.3,.28,.06,x*.66,.72,.08,gloss,mower);
+    cylinder('cup holder',.11,.06,x*.66,.9,.06,gloss,mower);cylinder('cup holder rim',.12,.012,x*.66,.93,.06,steel,mower);
+    // Lap bars: up from the tower, forward, then a grip reaching inward.
+    rod('lap bar',[x*.66,.86,.16],[x*.66,1.12,.24],.04,gloss,mower);
+    rod('lap bar',[x*.66,1.12,.24],[x*.66,1.15,.36],.04,gloss,mower);
+    rod('bar grip',[x*.66,1.15,.36],[x*.18,1.15,.38],.05,rubber,mower);
+  }
+  // High-back seat with a rounded cushion, side bolsters and armrests.
+  slab('seat base',.62,.08,.52,.08,0,.72,-.08,gloss,mower);
+  slab('seat cushion',.58,.1,.48,.12,0,.81,-.07,black,mower);
+  const back=new TransformNode('seat back',scene);back.parent=mower;back.position.set(0,1.1,-.34);back.rotation.x=.12;
+  slab('seat back',.56,.6,.12,.055,0,0,0,black,back);slab('seat back shell',.6,.64,.05,.024,0,-.01,-.08,gloss,back);
+  for(const x of [-.27,.27])sphere('seat bolster',.12,.5,.16,x,0,.04,black,back);
+  for(const x of [-.36,.36])slab('armrest',.08,.06,.34,.03,x,.98,-.12,black,mower);
+  // Engine: black shroud, round fan grille with rings, air filter and a chrome muffler.
+  slab('engine block',.72,.34,.48,.08,0,.66,-.72,gloss,mower);
+  slab('engine deck',.82,.05,.6,.05,0,.48,-.72,orange,mower);
+  cylinder('fan housing',.52,.14,0,.9,-.7,gloss,mower);
+  cylinder('fan grille',.44,.02,0,.975,-.7,steel,mower);
+  for(const d of [.12,.22,.32]){const ring=MeshBuilder.CreateTorus('grille ring',{diameter:d,thickness:.018,tessellation:24},scene);ring.position.set(0,.985,-.7);finish(ring,gloss,mower);}
+  for(let i=0;i<8;i++){const a=i*Math.PI/8,spoke=box('grille spoke',.4,.012,.018,0,.986,-.7,gloss,mower);spoke.rotation.y=a;}
+  cylinder('fan hub',.08,.03,0,.995,-.7,chrome,mower);
+  cylinder('air filter',.2,.12,.24,.92,-.52,gloss,mower);
+  for(let x=-.3;x<=.3;x+=.04)box('cooling fins',.018,.24,.02,x,.66,-.97,steel,mower);
+  const exhaust=cylinder('muffler',.15,.5,0,.5,-.99,chrome,mower);exhaust.rotation.z=Math.PI/2;
+  cylinder('tail pipe',.05,.1,.26,.5,-1.06,chrome,mower).rotation.x=Math.PI/2;
+  // Tyres are lathed with rounded shoulders, chevron treads and grey rims.
+  const tyre=(r,w)=>[[r*.55,-w/2],[r*.86,-w/2],[r*.96,-w*.44],[r,-w*.3],[r,w*.3],[r*.96,w*.44],[r*.86,w/2],[r*.55,w/2]];
+  for(const [x,z,r,w] of [[-.73,-.48,.36,.32],[.73,-.48,.36,.32],[-.58,.86,.15,.13],[.58,.86,.15,.13]]) {
     const pivot=new TransformNode('wheel pivot',scene);pivot.parent=mower;pivot.position.set(x,r,z);pivot.rotation.z=Math.PI/2;wheels.push({pivot,r});
-    cylinder('tire',r*2,w,0,0,0,rubber,pivot);
-    cylinder('wheel hub',r*.95,w+.015,0,0,0,steel,pivot);
-    cylinder('hub center',r*.34,w+.035,0,0,0,plastic,pivot);
-    if(r>.2)for(let i=0;i<22;i++)for(const side of [-1,1]) {
-      const a=i*6.28/22,lug=box('tire tread',.07,w*.48,.035,Math.cos(a)*r,side*w*.24,Math.sin(a)*r,rubber,pivot);
-      lug.rotation.y=-a;lug.rotation.x=side*.3;
+    lathe('tyre',tyre(r,w),rubber,pivot);
+    cylinder('rim',r*1.12,w*.86,0,0,0,steel,pivot);
+    cylinder('hub',r*.42,w*.92,0,0,0,gloss,pivot);
+    for(let i=0;i<5;i++){const a=i*6.28/5;cylinder('lug nut',.03,w*.95,Math.cos(a)*r*.3,0,Math.sin(a)*r*.3,chrome,pivot);}
+    if(r>.2)for(let i=0;i<26;i++)for(const side of [-1,1]) {
+      const a=i*6.28/26,lug=box('tyre tread',.075,w*.42,.03,Math.cos(a)*r,side*w*.2,Math.sin(a)*r,rubber,pivot);
+      lug.rotation.y=-a;lug.rotation.x=side*.45;
     }
-    else rod('caster fork',[x,.2,z],[x,.48,z],.07,orange,mower);
+    else {rod('caster fork',[x,.18,z-.02],[x,.52,z-.02],.07,gloss,mower);cylinder('caster pivot',.12,.08,x,.54,z-.02,orange,mower);}
+  }
+  // The landscaper: gray tee with a grass logo, jeans, work boots, cap and ear protection.
+  const logoTexture=new DynamicTexture('shirt logo',{width:128,height:128},scene,false),lc=logoTexture.getContext();
+  lc.clearRect(0,0,128,128);lc.fillStyle='#e9e6dc';
+  for(const [x,lean,h] of [[64,0,70],[48,-14,56],[80,14,56],[36,-26,40],[92,26,40]]){lc.beginPath();lc.moveTo(x-6,104);lc.quadraticCurveTo(x+lean*.3,104-h*.6,x+lean,104-h);lc.quadraticCurveTo(x+lean*.2+3,104-h*.5,x+6,104);lc.fill();}
+  logoTexture.hasAlpha=true;logoTexture.update();
+  const logo=material('shirt logo',"#ffffff");logo.diffuseTexture=logoTexture;logo.useAlphaFromDiffuseTexture=true;logo.backFaceCulling=false;
+  const shirtGray=material('heather tee','#6b7178',.04);shirtGray.diffuseTexture=shirt.diffuseTexture;
+  const capFabric=material('cap fabric','#3c3f3a',.05),muff=material('ear muff','#e46b1c',.25);
+  function limb(name,a,b,radius,m,parent){
+    const from=new Vector3(...a),to=new Vector3(...b),dir=to.subtract(from),length=dir.length();
+    const o=MeshBuilder.CreateCapsule(name,{radius,height:length+radius*2,tessellation:14,subdivisions:2},scene);
+    o.position=from.add(to).scale(.5);o.rotationQuaternion=Quaternion.FromUnitVectorsToRef(Vector3.Up(),dir.normalize(),new Quaternion());
+    return finish(o,m,parent);
   }
   function person(name,parent,seated) {
     const p=new TransformNode(name,scene);if(parent)p.parent=parent;
-    const hip=seated?.99:.93,torso=seated?1.31:1.25;
-    sphere('person torso',.57,.7,.32,0,torso,-.04,shirt,p);
-    sphere('neck',.13,.15,.13,0,torso+.38,0,skin,p);
-    sphere('head',.29,.34,.28,0,torso+.57,0,skin,p);
-    sphere('cap',.32,.16,.31,0,torso+.72,-.02,plastic,p);
-    box('cap brim',.31,.035,.21,0,torso+.66,.18,plastic,p);
-    const headset=MeshBuilder.CreateTorus('headset band',{diameter:.36,thickness:.027,tessellation:20},scene);headset.parent=p;headset.position.set(0,torso+.6,0);headset.rotation.x=Math.PI/2;finish(headset,black,p);
+    const hip=seated?.98:.94,chest=hip+.5,neck=chest+.07,head=neck+.13;
+    // Torso: lathed from waist to shoulders, then flattened front to back.
+    const torso=lathe('torso',[[0,0],[.16,0],[.17,.08],[.18,.25],[.205,.4],[.215,.46],[.19,.52],[.09,.56],[0,.57]],shirtGray,p,24);
+    torso.position.set(0,hip-.02,seated?-.06:0);torso.scaling.z=.62;if(seated)torso.rotation.x=-.08;
+    lathe('belt',[[0,0],[.165,0],[.17,.05],[0,.05]],black,p,20).position.set(0,hip-.04,seated?-.06:0);
+    const logoPlane=MeshBuilder.CreatePlane('shirt logo',{size:.24},scene);logoPlane.position.set(0,chest-.06,(seated?-.06:0)-.15);logoPlane.rotation.x=seated?-.08:0;finish(logoPlane,logo,p,false);
+    limb('neck',[0,chest+.02,seated?-.07:0],[0,neck+.04,seated?-.06:0],.055,skin,p);
+    const h=sphere('head',.21,.25,.23,0,head,seated?-.05:0,skin,p);
+    for(const side of [-1,1])sphere('ear',.04,.07,.03,side*.105,head,seated?-.05:0,skin,p);
+    sphere('nose',.04,.05,.05,0,head-.01,(seated?-.05:0)+.11,skin,p);
+    // Cap: hemisphere crown and a curved brim facing forward, worn over the headset band.
+    const crown=MeshBuilder.CreateSphere('cap crown',{diameter:.235,segments:14,slice:.55},scene);crown.position.set(0,head+.03,seated?-.05:0);crown.scaling.y=.85;finish(crown,capFabric,p);
+    const brim=MeshBuilder.CreateCylinder('cap brim',{diameter:.24,height:.012,arc:.5,tessellation:20},scene);brim.position.set(0,head+.04,(seated?-.05:0)+.09);brim.rotation.y=-Math.PI/2;brim.rotation.x=.12;finish(brim,capFabric,p);
+    const band=MeshBuilder.CreateTorus('headset band',{diameter:.25,thickness:.02,tessellation:20},scene);band.parent=p;band.position.set(0,head+.03,seated?-.05:0);band.rotation.z=Math.PI/2;finish(band,black,p);
+    for(const side of [-1,1]){const cup=cylinder('ear muff',.11,.06,side*.125,head,seated?-.05:0,muff,p);cup.rotation.z=Math.PI/2;const pad=cylinder('muff pad',.1,.03,side*.1,head,seated?-.05:0,black,p);pad.rotation.z=Math.PI/2;}
     for(const side of [-1,1]) {
-      sphere('ear protector',.085,.16,.13,side*.17,torso+.57,0,orange,p);
-      const elbow=[side*.36,torso-.17,.13],hand=[side*.23,torso-.25,seated?.38:.32];
-      rod('sleeve',[side*.23,torso+.15,0],elbow,.2,shirt,p);
-      rod('forearm',elbow,hand,.135,skin,p);sphere('hand',.13,.14,.12,...hand,skin,p);
-      const knee=[side*.22,seated?.69:.52,seated?.38:.05];
-      rod('jeans thigh',[side*.18,hip,0],knee,.23,jeans,p);
-      rod('jeans calf',knee,[side*.22,.29,seated?.58:.02],.18,jeans,p);
-      sphere('work shoe',.22,.14,.36,side*.22,seated?.5:.1,seated?.66:.12,black,p);
+      const shoulder=[side*.19,chest-.04,seated?-.06:0],elbow=seated?[side*.25,chest-.27,.1]:[side*.24,chest-.3,.06],hand=seated?[side*.18,1.15,.37]:[side*.2,hip-.08,.28];
+      sphere('shoulder',.15,.13,.14,...shoulder,shirtGray,p);
+      limb('sleeve',shoulder,[shoulder[0]+(elbow[0]-shoulder[0])*.45,shoulder[1]+(elbow[1]-shoulder[1])*.45,shoulder[2]+(elbow[2]-shoulder[2])*.45],.062,shirtGray,p);
+      limb('upper arm',shoulder,elbow,.05,skin,p);limb('forearm',elbow,hand,.045,skin,p);
+      sphere('hand',.09,.07,.11,...hand,skin,p);
+      const knee=seated?[side*.14,hip+.02,.42]:[side*.11,.5,.05],ankle=seated?[side*.15,.6,.62]:[side*.11,.1,.02];
+      limb('thigh',[side*.1,hip,seated?-.02:0],knee,.085,jeans,p);
+      limb('shin',knee,ankle,.065,jeans,p);
+      slab('work boot',.12,.1,.24,.05,ankle[0],ankle[1]-.05,ankle[2]+.06,black,p);
     }
-    // A small blade motif on the back of the shirt, inspired by the reference.
-    for(let i=-1;i<=1;i++)rod('shirt emblem',[i*.035,torso-.04,-.205],[i*.07,torso+.17,-.205],.018,white,p);
     return p;
   }
   const driver=person('driver',mower,true),walker=person('walker',null,false);
   rod('trimmer shaft',[.22,1.08,.28],[.22,.12,1],.035,steel,walker);
-  cylinder('trimmer guard',.32,.06,.22,.12,1,plastic,walker);
-  box('trimmer motor',.2,.22,.24,.22,.95,-.08,orange,walker);
+  cylinder('trimmer guard',.32,.06,.22,.12,1,gloss,walker);
+  slab('trimmer motor',.2,.22,.24,.05,.22,.95,-.08,orange,walker);
+  rod('trimmer handle',[.08,.88,.5],[.36,.88,.5],.04,black,walker);
+  // Bake each rigid group into one mesh per material so the detailed models stay cheap to draw.
+  function bake(node){
+    const groups=new Map();
+    for(const mesh of node.getChildMeshes(true)){if(mesh.material===logo)continue;const g=groups.get(mesh.material)||[];g.push(mesh);groups.set(mesh.material,g);}
+    for(const meshes of groups.values())if(meshes.length>1){
+      for(const mesh of meshes){mesh.computeWorldMatrix(true);shadows.removeShadowCaster(mesh);}
+      const merged=Mesh.MergeMeshes(meshes,true,true);if(merged){merged.setParent(node);merged.receiveShadows=true;shadows.addShadowCaster(merged);}
+    }
+  }
+  mower.computeWorldMatrix(true);
+  for(const node of [mower,back,driver,walker,...wheels.map(w=>w.pivot)])bake(node);
 
   // Each thin instance is a tapered, curved ribbon, rather than a spike.
   const blade=new Mesh('curved grass',scene),data=new VertexData();
@@ -324,7 +430,7 @@ export function buildGraphics(scene, shadows, lawn) {
   let quality='high';
   const matrices=new Float32Array(count*16),colors=new Float32Array(count*4),samples=[];
   for(let id=0;id<lawn.cells.length;id++)for(let j=0;j<perCell;j++) {
-    const center=lawn.center(id),x=center.x+(random()-.5)*lawn.cell,z=center.z+(random()-.5)*lawn.cell,h=.65+random()*.65,angle=random()*6.28;
+    const center=lawn.center(id),x=center.x+(random()-.5)*lawn.cell,z=center.z+(random()-.5)*lawn.cell,h=.5+random()*.45,angle=random()*6.28;
     samples.push({x,z,h,angle,width:.65+random()*.7});const tint=.7+random()*.4;colors.set([tint,.85+random()*.15,.7+random()*.3,1],(id*perCell+j)*4);
   }
   // Missed grass glows yellow-green while Find grass is on; cut cells keep their natural tint.
@@ -376,9 +482,12 @@ export function buildGraphics(scene, shadows, lawn) {
     for(const mesh of meshes){mesh.computeWorldMatrix(true);shadows.removeShadowCaster(mesh);}
     const merged=Mesh.MergeMeshes(meshes,true,true);if(merged){merged.receiveShadows=true;shadows.addShadowCaster(merged);}
   }
-  const skyTexture=new DynamicTexture('summer sky',{width:2048,height:1024},scene,false),skyContext=skyTexture.getContext();
-  const skyGradient=skyContext.createLinearGradient(0,0,0,1024);skyGradient.addColorStop(0,'#dbe5d9');skyGradient.addColorStop(.5,'#86bddc');skyGradient.addColorStop(1,'#3682c4');skyContext.fillStyle=skyGradient;skyContext.fillRect(0,0,2048,1024);
-  for(let i=0;i<35;i++){const x=random()*2048,y=550+random()*250;for(let j=0;j<10;j++){skyContext.fillStyle='#ffffff20';skyContext.beginPath();skyContext.ellipse(x+(random()-.5)*150,y+(random()-.5)*35,30+random()*65,10+random()*24,0,0,6.28);skyContext.fill();}}
-  skyTexture.update();const sky=MeshBuilder.CreateSphere('sky dome',{diameter:160,segments:32,sideOrientation:Mesh.BACKSIDE},scene),skyMaterial=material('sky material','#000000');skyMaterial.disableLighting=true;skyMaterial.emissiveColor=Color3.Black();skyMaterial.emissiveTexture=skyTexture;sky.material=skyMaterial;sky.isPickable=false;sky.infiniteDistance=true;
+  // Sky: the partly cloudy photo, repeated (mirrored) four times around the horizon and
+  // rising from the horizon to just past the zenith (mirrored below it, behind the trees); the UVs are set from each vertex's direction.
+  const skyTexture=new Texture(photos.sky,scene);skyTexture.wrapU=Texture.MIRROR_ADDRESSMODE;skyTexture.wrapV=Texture.CLAMP_ADDRESSMODE;
+  const sky=MeshBuilder.CreateSphere('sky dome',{diameter:160,segments:32,sideOrientation:Mesh.BACKSIDE},scene),skyMaterial=material('sky material','#000000');
+  const skyPositions=sky.getVerticesData('position'),skyUVs=[];
+  for(let i=0;i<skyPositions.length;i+=3){const [x,y,z]=[skyPositions[i],skyPositions[i+1],skyPositions[i+2]],elevation=Math.atan2(y,Math.hypot(x,z));skyUVs.push((Math.atan2(z,x)/Math.PI+1)*2,Math.abs(elevation)/(Math.PI/2)*1.1);}
+  sky.setVerticesData('uv',skyUVs);skyMaterial.disableLighting=true;skyMaterial.emissiveColor=Color3.Black();skyMaterial.emissiveTexture=skyTexture;sky.material=skyMaterial;sky.isPickable=false;sky.infiniteDistance=true;
   return {mower,driver,walker,blade,refreshGrass,lawnBase,spray,setHighlight(on){if(on===highlight)return;highlight=on;for(let id=0;id<lawn.cells.length;id++)tint(id);blade.thinInstanceBufferUpdated('color');},update(dt,speed){wind.time+=dt;updateClippings(dt);for(const {pivot,r} of wheels)pivot.rotation.y-=speed*dt/r;},setQuality(q){quality=q;refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
 }
