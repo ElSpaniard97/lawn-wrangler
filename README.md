@@ -229,6 +229,7 @@ The full plan is in the project's improvement plan document.
 | 8. Unreal Engine 5 version alongside Godot: gameplay ported to C++ (done), playable yard with stand-in shapes (done), Fab art in the editor (next) | In progress |
 | 9. Babylon.js browser edition: migration and graphics pass (done), smaller download, phones start on Low, Babylon credits (done), folding key guide, photo textures, missed grass glowing on the lawn, clippings, richer sound and the 30 x 36 m yard (done) | Done |
 | 10. Graphics pass toward the reference image: detailed mower and driver, house gables, photo windows, door and sky, tree line, photo lawn | Done |
+| 11. Movement fixes: wheels roll with real movement (outside wheel faster in turns), zero-turn pivot steering, walking legs, trimmer sweep and spinning line, driver leans into turns | Done |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling

@@ -329,7 +329,7 @@ export function buildGraphics(scene, shadows, lawn) {
   // Tyres are lathed with rounded shoulders, chevron treads and grey rims.
   const tyre=(r,w)=>[[r*.55,-w/2],[r*.86,-w/2],[r*.96,-w*.44],[r,-w*.3],[r,w*.3],[r*.96,w*.44],[r*.86,w/2],[r*.55,w/2]];
   for(const [x,z,r,w] of [[-.73,-.48,.36,.32],[.73,-.48,.36,.32],[-.58,.86,.15,.13],[.58,.86,.15,.13]]) {
-    const pivot=new TransformNode('wheel pivot',scene);pivot.parent=mower;pivot.position.set(x,r,z);pivot.rotation.z=Math.PI/2;wheels.push({pivot,r});
+    const pivot=new TransformNode('wheel pivot',scene);pivot.parent=mower;pivot.position.set(x,r,z);pivot.rotation.z=Math.PI/2;wheels.push({pivot,r,x});
     lathe('tyre',tyre(r,w),rubber,pivot);
     cylinder('rim',r*1.12,w*.86,0,0,0,steel,pivot);
     cylinder('hub',r*.42,w*.92,0,0,0,gloss,pivot);
@@ -356,39 +356,47 @@ export function buildGraphics(scene, shadows, lawn) {
   }
   function person(name,parent,seated) {
     const p=new TransformNode(name,scene);if(parent)p.parent=parent;
+    // The upper body twists on its own node and each leg swings from a hip pivot.
+    const body=new TransformNode(name+' upper body',scene);body.parent=p;p.body=body;p.legs=[];
     const hip=seated?.98:.94,chest=hip+.5,neck=chest+.07,head=neck+.13;
     // Torso: lathed from waist to shoulders, then flattened front to back.
-    const torso=lathe('torso',[[0,0],[.16,0],[.17,.08],[.18,.25],[.205,.4],[.215,.46],[.19,.52],[.09,.56],[0,.57]],shirtGray,p,24);
+    const torso=lathe('torso',[[0,0],[.16,0],[.17,.08],[.18,.25],[.205,.4],[.215,.46],[.19,.52],[.09,.56],[0,.57]],shirtGray,body,24);
     torso.position.set(0,hip-.02,seated?-.06:0);torso.scaling.z=.62;if(seated)torso.rotation.x=-.08;
     lathe('belt',[[0,0],[.165,0],[.17,.05],[0,.05]],black,p,20).position.set(0,hip-.04,seated?-.06:0);
-    const logoPlane=MeshBuilder.CreatePlane('shirt logo',{size:.24},scene);logoPlane.position.set(0,chest-.06,(seated?-.06:0)-.15);logoPlane.rotation.x=seated?-.08:0;finish(logoPlane,logo,p,false);
-    limb('neck',[0,chest+.02,seated?-.07:0],[0,neck+.04,seated?-.06:0],.055,skin,p);
-    const h=sphere('head',.21,.25,.23,0,head,seated?-.05:0,skin,p);
-    for(const side of [-1,1])sphere('ear',.04,.07,.03,side*.105,head,seated?-.05:0,skin,p);
-    sphere('nose',.04,.05,.05,0,head-.01,(seated?-.05:0)+.11,skin,p);
+    const logoPlane=MeshBuilder.CreatePlane('shirt logo',{size:.24},scene);logoPlane.position.set(0,chest-.06,(seated?-.06:0)-.15);logoPlane.rotation.x=seated?-.08:0;finish(logoPlane,logo,body,false);
+    limb('neck',[0,chest+.02,seated?-.07:0],[0,neck+.04,seated?-.06:0],.055,skin,body);
+    const h=sphere('head',.21,.25,.23,0,head,seated?-.05:0,skin,body);
+    for(const side of [-1,1])sphere('ear',.04,.07,.03,side*.105,head,seated?-.05:0,skin,body);
+    sphere('nose',.04,.05,.05,0,head-.01,(seated?-.05:0)+.11,skin,body);
     // Cap: hemisphere crown and a curved brim facing forward, worn over the headset band.
-    const crown=MeshBuilder.CreateSphere('cap crown',{diameter:.235,segments:14,slice:.55},scene);crown.position.set(0,head+.03,seated?-.05:0);crown.scaling.y=.85;finish(crown,capFabric,p);
-    const brim=MeshBuilder.CreateCylinder('cap brim',{diameter:.24,height:.012,arc:.5,tessellation:20},scene);brim.position.set(0,head+.04,(seated?-.05:0)+.09);brim.rotation.y=-Math.PI/2;brim.rotation.x=.12;finish(brim,capFabric,p);
-    const band=MeshBuilder.CreateTorus('headset band',{diameter:.25,thickness:.02,tessellation:20},scene);band.parent=p;band.position.set(0,head+.03,seated?-.05:0);band.rotation.z=Math.PI/2;finish(band,black,p);
-    for(const side of [-1,1]){const cup=cylinder('ear muff',.11,.06,side*.125,head,seated?-.05:0,muff,p);cup.rotation.z=Math.PI/2;const pad=cylinder('muff pad',.1,.03,side*.1,head,seated?-.05:0,black,p);pad.rotation.z=Math.PI/2;}
+    const crown=MeshBuilder.CreateSphere('cap crown',{diameter:.235,segments:14,slice:.55},scene);crown.position.set(0,head+.03,seated?-.05:0);crown.scaling.y=.85;finish(crown,capFabric,body);
+    const brim=MeshBuilder.CreateCylinder('cap brim',{diameter:.24,height:.012,arc:.5,tessellation:20},scene);brim.position.set(0,head+.04,(seated?-.05:0)+.09);brim.rotation.y=-Math.PI/2;brim.rotation.x=.12;finish(brim,capFabric,body);
+    const band=MeshBuilder.CreateTorus('headset band',{diameter:.25,thickness:.02,tessellation:20},scene);band.parent=body;band.position.set(0,head+.03,seated?-.05:0);band.rotation.z=Math.PI/2;finish(band,black,body);
+    for(const side of [-1,1]){const cup=cylinder('ear muff',.11,.06,side*.125,head,seated?-.05:0,muff,body);cup.rotation.z=Math.PI/2;const pad=cylinder('muff pad',.1,.03,side*.1,head,seated?-.05:0,black,body);pad.rotation.z=Math.PI/2;}
     for(const side of [-1,1]) {
       const shoulder=[side*.19,chest-.04,seated?-.06:0],elbow=seated?[side*.25,chest-.27,.1]:[side*.24,chest-.3,.06],hand=seated?[side*.18,1.15,.37]:[side*.2,hip-.08,.28];
-      sphere('shoulder',.15,.13,.14,...shoulder,shirtGray,p);
-      limb('sleeve',shoulder,[shoulder[0]+(elbow[0]-shoulder[0])*.45,shoulder[1]+(elbow[1]-shoulder[1])*.45,shoulder[2]+(elbow[2]-shoulder[2])*.45],.062,shirtGray,p);
-      limb('upper arm',shoulder,elbow,.05,skin,p);limb('forearm',elbow,hand,.045,skin,p);
-      sphere('hand',.09,.07,.11,...hand,skin,p);
+      sphere('shoulder',.15,.13,.14,...shoulder,shirtGray,body);
+      limb('sleeve',shoulder,[shoulder[0]+(elbow[0]-shoulder[0])*.45,shoulder[1]+(elbow[1]-shoulder[1])*.45,shoulder[2]+(elbow[2]-shoulder[2])*.45],.062,shirtGray,body);
+      limb('upper arm',shoulder,elbow,.05,skin,body);limb('forearm',elbow,hand,.045,skin,body);
+      sphere('hand',.09,.07,.11,...hand,skin,body);
       const knee=seated?[side*.14,hip+.02,.42]:[side*.11,.5,.05],ankle=seated?[side*.15,.6,.62]:[side*.11,.1,.02];
-      limb('thigh',[side*.1,hip,seated?-.02:0],knee,.085,jeans,p);
-      limb('shin',knee,ankle,.065,jeans,p);
-      slab('work boot',.12,.1,.24,.05,ankle[0],ankle[1]-.05,ankle[2]+.06,black,p);
+      const leg=new TransformNode('leg',scene),top=[side*.1,hip,seated?-.02:0],at=v=>v.map((c,i)=>c-top[i]);leg.parent=p;leg.position.set(...top);p.legs.push(leg);
+      limb('thigh',[0,0,0],at(knee),.085,jeans,leg);
+      limb('shin',at(knee),at(ankle),.065,jeans,leg);
+      slab('work boot',.12,.1,.24,.05,...at([ankle[0],ankle[1]-.05,ankle[2]+.06]),black,leg);
     }
     return p;
   }
-  const driver=person('driver',mower,true),walker=person('walker',null,false);
-  rod('trimmer shaft',[.22,1.08,.28],[.22,.12,1],.035,steel,walker);
-  cylinder('trimmer guard',.32,.06,.22,.12,1,gloss,walker);
-  slab('trimmer motor',.2,.22,.24,.05,.22,.95,-.08,orange,walker);
-  rod('trimmer handle',[.08,.88,.5],[.36,.88,.5],.04,black,walker);
+  // The driver sits on a node at seat height so they can lean into turns.
+  const seat=new TransformNode('driver seat',scene);seat.parent=mower;seat.position.set(0,.98,-.02);
+  const driver=person('driver',seat,true),walker=person('walker',null,false),arms=walker.body;driver.position.set(0,-.98,.02);
+  rod('trimmer shaft',[.22,1.08,.28],[.22,.12,1],.035,steel,arms);
+  cylinder('trimmer guard',.32,.06,.22,.12,1,gloss,arms);
+  slab('trimmer motor',.2,.22,.24,.05,.22,.95,-.08,orange,arms);
+  rod('trimmer handle',[.08,.88,.5],[.36,.88,.5],.04,black,arms);
+  const line=new TransformNode('trimmer line',scene),nylon=material('trimmer line','#e8e070');line.parent=arms;line.position.set(.22,.08,1);
+  box('trimmer line',.34,.006,.008,0,0,0,nylon,line,false);box('trimmer line',.008,.006,.34,0,0,0,nylon,line,false);
+  cylinder('trimmer spool',.07,.04,0,.015,0,black,line);
   // Bake each rigid group into one mesh per material so the detailed models stay cheap to draw.
   function bake(node){
     const groups=new Map();
@@ -399,7 +407,7 @@ export function buildGraphics(scene, shadows, lawn) {
     }
   }
   mower.computeWorldMatrix(true);
-  for(const node of [mower,back,driver,walker,...wheels.map(w=>w.pivot)])bake(node);
+  for(const node of [mower,back,driver,driver.body,...driver.legs,walker,arms,...walker.legs,line,...wheels.map(w=>w.pivot)])bake(node);
 
   // Each thin instance is a tapered, curved ribbon, rather than a spike.
   const blade=new Mesh('curved grass',scene),data=new VertexData();
@@ -489,5 +497,22 @@ export function buildGraphics(scene, shadows, lawn) {
   const skyPositions=sky.getVerticesData('position'),skyUVs=[];
   for(let i=0;i<skyPositions.length;i+=3){const [x,y,z]=[skyPositions[i],skyPositions[i+1],skyPositions[i+2]],elevation=Math.atan2(y,Math.hypot(x,z));skyUVs.push((Math.atan2(z,x)/Math.PI+1)*2,Math.abs(elevation)/(Math.PI/2)*1.1);}
   sky.setVerticesData('uv',skyUVs);skyMaterial.disableLighting=true;skyMaterial.emissiveColor=Color3.Black();skyMaterial.emissiveTexture=skyTexture;sky.material=skyMaterial;sky.isPickable=false;sky.infiniteDistance=true;
-  return {mower,driver,walker,blade,refreshGrass,lawnBase,spray,setHighlight(on){if(on===highlight)return;highlight=on;for(let id=0;id<lawn.cells.length;id++)tint(id);blade.thinInstanceBufferUpdated('color');},update(dt,speed){wind.time+=dt;updateClippings(dt);for(const {pivot,r} of wheels)pivot.rotation.y-=speed*dt/r;},setQuality(q){quality=q;refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
+  // Wheels roll by the distance each one actually travels, so the outside wheel turns faster in a curve.
+  // The driver leans against the turn; the walker's legs stride and the trimmer sweeps while it spins.
+  let lean=0,stride=0,sweep=0,sweepSize=0;
+  function animate(dt,{onMower=true,forward=0,turn=0,cutting=false}){
+    if(!dt)return;
+    if(onMower){
+      for(const w of wheels)w.pivot.rotation.x+=(forward-turn*w.x)/w.r;
+      const target=Math.max(-.12,Math.min(.12,turn/dt*Math.abs(forward/dt)*.04));lean+=(target-lean)*(1-Math.exp(-6*dt));
+      seat.rotation.z=lean;seat.position.y=.98+Math.sin(wind.time*38)*.004*Math.min(Math.abs(forward/dt),1);
+    }else{
+      const moving=Math.min(1,(Math.abs(forward)+Math.abs(turn)*.3)/dt/1.5);stride+=forward*4.6+Math.abs(turn)*1.2;
+      walker.legs.forEach((leg,i)=>{leg.rotation.x+=((i?1:-1)*Math.sin(stride)*.42*moving-leg.rotation.x)*(1-Math.exp(-12*dt));});
+      walker.position.y=Math.abs(Math.cos(stride))*.025*moving;
+      sweepSize+=((cutting||moving>.1?.32:.12)-sweepSize)*(1-Math.exp(-4*dt));sweep+=dt*3.2;arms.rotation.y=Math.sin(sweep)*sweepSize;
+      line.rotation.y+=dt*47;
+    }
+  }
+  return {mower,driver,walker,blade,refreshGrass,lawnBase,spray,setHighlight(on){if(on===highlight)return;highlight=on;for(let id=0;id<lawn.cells.length;id++)tint(id);blade.thinInstanceBufferUpdated('color');},update(dt,motion={}){wind.time+=dt;updateClippings(dt);animate(dt,motion);},setQuality(q){quality=q;refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
 }
