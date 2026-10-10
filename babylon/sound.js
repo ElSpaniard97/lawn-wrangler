@@ -49,5 +49,20 @@ export function createSound() {
       osc.connect(gain);gain.connect(ctx.destination);osc.start(t);osc.stop(t+1);
     });
   }
-  return {start,update,chime};
+  // A short two-note blip when a checklist item is ticked, and a dull thud when the mower bumps into something.
+  function tick() {
+    if(!ctx)return;
+    [880,1318.5].forEach((f,i)=>{
+      const osc=ctx.createOscillator(),gain=ctx.createGain(),t=ctx.currentTime+i*.07;
+      osc.type='triangle';osc.frequency.value=f;gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(.05,t+.01);gain.gain.exponentialRampToValueAtTime(.0001,t+.25);
+      osc.connect(gain);gain.connect(ctx.destination);osc.start(t);osc.stop(t+.3);
+    });
+  }
+  function thud() {
+    if(!ctx)return;
+    const osc=ctx.createOscillator(),gain=ctx.createGain(),t=ctx.currentTime;
+    osc.type='sine';osc.frequency.setValueAtTime(110,t);osc.frequency.exponentialRampToValueAtTime(40,t+.18);gain.gain.setValueAtTime(.18,t);gain.gain.exponentialRampToValueAtTime(.0001,t+.25);
+    osc.connect(gain);gain.connect(ctx.destination);osc.start(t);osc.stop(t+.3);
+  }
+  return {start,update,chime,tick,thud};
 }

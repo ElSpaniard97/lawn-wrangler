@@ -232,6 +232,7 @@ The full plan is in the project's improvement plan document.
 | 11. Movement fixes: wheels roll with real movement (outside wheel faster in turns), zero-turn pivot steering, walking legs, trimmer sweep and spinning line, driver leans into turns | Done |
 | 12. Graphics upgrade: reflections on paint, chrome and windows; sun glow, colour grading, depth blur and soft corner shadows; painted cutout shrubs, flowers and leafy tree crowns; dog-ear fence; seamless painted sky; thicker grass near the player; gauge speedometer | Done |
 | 13. Sketchfab models (CC BY 4.0, credited): riding lawn tractor with rolling wheels, an animated landscaper who rides seated and walks with the weed eater, a string trimmer, a suburban house with a front porch, and oak trees; also fixed the mowed-stripe map being mirrored front to back | Done |
+| 14. Game design pass (browser): every checklist item must be ticked to finish so the weed eater matters, results card with par-time stars and run stats, bump and checklist feedback. Next ideas in `babylon/DESIGN.md` | Done |
 
 The original Python/pygame version was replaced by the Godot version. Its
 last release is commit `cbd462d`; see [RELEASE.md](RELEASE.md) for rolling
