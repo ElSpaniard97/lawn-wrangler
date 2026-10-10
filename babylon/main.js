@@ -21,6 +21,7 @@ import {Game, BLOCKED, YARD} from './lawn.js';
 import {buildGraphics,photos} from './graphics.js';
 import {Texture} from '@babylonjs/core/Materials/Textures/texture.js';
 import {createSound} from './sound.js';
+import {loadModels} from './models.js';
 let storage;try{storage=window.localStorage;}catch{}
 // Phones and tablets start on Low until the player picks a quality.
 let coarse=false;try{coarse=matchMedia('(pointer: coarse)').matches;}catch{}
@@ -34,7 +35,7 @@ scene.imageProcessingConfiguration.contrast=1.18;scene.imageProcessingConfigurat
 const shadows=new ShadowGenerator(2048,sun);shadows.usePercentageCloserFiltering=true;shadows.filteringQuality=ShadowGenerator.QUALITY_MEDIUM;shadows.bias=.0005;shadows.normalBias=.035;shadows.darkness=.22;
 const lawn=game.lawn;
 const visuals=buildGraphics(scene,shadows,lawn);
-const {mower,driver,walker,blade,refreshGrass}=visuals;
+const {mower,driver,walker,blade,refreshGrass}=visuals;loadModels(scene,shadows,visuals);
 const camera=new ArcRotateCamera('chase',-Math.PI/2,1.29,5.7,new Vector3(0,1,0),scene);
 camera.minZ=.08;camera.fov=1.05;
 // The key guide folds away once the player gets going; C or Keys brings it back, and pausing shows it.
@@ -50,7 +51,8 @@ let look,occlusion;
 function applyEffects(q){
   look?.dispose();occlusion?.dispose();look=occlusion=null;const ip=scene.imageProcessingConfiguration;ip.vignetteEnabled=q!=='low';ip.colorCurvesEnabled=q!=='low';
   if(q==='low')return;
-  look=new DefaultRenderingPipeline('look',true,scene,[camera]);look.fxaaEnabled=true;look.bloomEnabled=true;look.bloomThreshold=.82;look.bloomWeight=.28;look.bloomKernel=48;look.bloomScale=.5;
+  // Not HDR: glossy model highlights overflow half-float buffers to Infinity, which bloom smears into black squares.
+  look=new DefaultRenderingPipeline('look',false,scene,[camera]);look.fxaaEnabled=true;look.bloomEnabled=true;look.bloomThreshold=.82;look.bloomWeight=.28;look.bloomKernel=48;look.bloomScale=.5;
   if(q==='high'){look.depthOfFieldEnabled=true;look.depthOfField.fStop=5.6;look.depthOfField.focalLength=45;look.depthOfFieldBlurLevel=0;}
   if(q==='high'&&engine.webGLVersion>=2){occlusion=new SSAO2RenderingPipeline('contact shadows',scene,{ssaoRatio:.5,blurRatio:.5},[camera]);occlusion.radius=.8;occlusion.totalStrength=.75;occlusion.samples=12;occlusion.maxZ=60;occlusion.expensiveBlur=false;}
 }
@@ -62,9 +64,10 @@ function reset(){game.reset();keys.clear();touch={throttle:0,steer:0};refreshGra
 // DynamicTexture stays GPU-resident; only update the small cut map after cutting.
 const cutTexture=new DynamicTexture('cut map',{width:512,height:512},scene,false);cutTexture.hasAlpha=false;const cutMaterial=new StandardMaterial('directional lawn',scene);// The lawn is the grass photo, darkened per cell by the cut map to draw stripes and tall grass.
 const lawnPhoto=new Texture(photos.lawn,scene);lawnPhoto.uScale=lawn.width/1.6;lawnPhoto.vScale=lawn.depth/1.6;cutMaterial.diffuseTexture=lawnPhoto;cutMaterial.diffuseColor=new Color3(1.05,1.05,1.05);cutMaterial.lightmapTexture=cutTexture;cutMaterial.useLightmapAsShadowmap=true;cutMaterial.specularColor=Color3.Black();const cutGround=MeshBuilder.CreateGround('directional ground',{width:lawn.width,height:lawn.depth},scene);cutGround.position.y=.015;cutGround.material=cutMaterial;cutGround.receiveShadows=true;
+// Canvas rows run top-down while the ground's texture runs from -z, so rows are flipped to line up with the cells.
 function paintMap(ids=Array.from({length:lawn.cells.length},(_,i)=>i)){
   const ctx=cutTexture.getContext(),size=cutTexture.getSize(),w=size.width/lawn.cols,h=size.height/lawn.rows;
-  for(const id of ids){const x=id%lawn.cols*w,y=Math.floor(id/lawn.cols)*h,state=lawn.cells[id];
+  for(const id of ids){const x=id%lawn.cols*w,y=(lawn.rows-1-Math.floor(id/lawn.cols))*h,state=lawn.cells[id];
     ctx.fillStyle=state===0&&lastGlow?'#ffff9a':['#9aa888','#ffffff','#b7c4a2','#a08c6a'][state];ctx.fillRect(x,y,w+.01,h+.01);
   }
   cutTexture.update();

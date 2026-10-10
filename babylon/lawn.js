@@ -1,7 +1,7 @@
 export const TALL=0,BLOCKED=3;
 // The fenced lawn is 30 x 36 m like the Godot yard. The house runs along the left (-x) fence,
 // its porch steps onto the lawn, the patio sits at the front (+z) and three shade trees stand in the grass.
-export const YARD={halfX:15,halfZ:18},porch={x:-14.2,z:-4,w:3.2,d:10},patio={x:5,z:15,w:8,d:4},gasCan={x:-12,z:-4},trees=[[12,9],[12,-12],[-12,12]];
+export const YARD={halfX:15,halfZ:18},porch={x:-13.9,z:-4,w:2.4,d:5.4},patio={x:5,z:15,w:8,d:4},gasCan={x:-12,z:-4},trees=[[12,9],[12,-12],[-12,12]];
 export class Lawn {
   constructor(width=YARD.halfX*2,depth=YARD.halfZ*2,cell=.5){this.width=width;this.depth=depth;this.cell=cell;this.cols=Math.ceil(width/cell);this.rows=Math.ceil(depth/cell);this.blocked=new Set();this.reset();}
   center(id){return {x:-this.width/2+(id%this.cols+.5)*this.cell,z:-this.depth/2+(Math.floor(id/this.cols)+.5)*this.cell};}

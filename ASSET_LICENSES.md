@@ -1,15 +1,35 @@
 # Asset licenses
 
-Every model and sound in Lawn Wrangler is generated in code. The only
-outside art is the set of photo textures below, used on the lawn and the
-scenery. Nothing else (no scripts, fonts, models, sounds or Godot add-ons)
+Every sound in Lawn Wrangler is generated in code, and so is every model
+except the Sketchfab models below (browser edition only). The other outside
+art is the set of photo textures below, used on the lawn and the scenery. Nothing else (no scripts, fonts, sounds or Godot add-ons)
 comes from outside the project.
 
 Any asset added later must be listed here with where it came from and its
-license, and must be a plain image or sound file. The tests check that each
+license, and must be a plain image, sound or glTF model file. The tests check that each
 texture the game uses is a JPEG in `godot/textures/` and is listed here.
 The Babylon browser edition uses the same files from `godot/textures/`
 (see `babylon/graphics.js`); Vite copies them into the web build.
+
+## Sketchfab models (CC BY 4.0)
+
+Downloaded from Sketchfab by Zeke on 2026-10-09 and approved for use with
+credit. Each is licensed under Creative Commons Attribution 4.0
+(http://creativecommons.org/licenses/by/4.0/): free to use, including
+commercially, as long as the author is credited. The credits page
+(`web/credits.html`) names each one. The files were shrunk for the web:
+textures resized to 1024 px or less and saved as WebP, every animation but
+`walk` removed from the landscaper, the oak scene's ground and rock pieces
+removed and its three trees split apart, and the tractor's tyres split into
+front and rear axles.
+
+| File | Model, author and source | Used for |
+| --- | --- | --- |
+| `babylon/models/tractor.glb` | "Lawn Tractor" by mirrol (https://sketchfab.com/mirrol), https://sketchfab.com/3d-models/lawn-tractor-97ec916314324ed8a828176f3d310f82 | The riding mower |
+| `babylon/models/landscaper.glb` | "Bearded man - Low poly animated" by Agor_2012 (https://sketchfab.com/Agor_), https://sketchfab.com/3d-models/bearded-man-low-poly-animated-5718a53d18a142f686b1d9f02a637773 | The landscaper, riding and walking |
+| `babylon/models/trimmer.glb` | "String trimmer" by Colin Charles (https://sketchfab.com/Colin_Charles), https://sketchfab.com/3d-models/string-trimmer-b236cda82f4e4517a943e85aef78a2e8 | The weed eater |
+| `babylon/models/house.glb` | "Suburban House" by mbuannoart (https://sketchfab.com/mbuannoart), https://sketchfab.com/3d-models/suburban-house-b8375c5e5e6b40639fc06492fbd95fcb | The house and porch |
+| `babylon/models/oak.glb` | "Oak Trees FREE Low Poly" by LordSamueliSolo (https://sketchfab.com/LadyLionStudios), https://sketchfab.com/3d-models/oak-trees-free-low-poly-7a689370f9ec46cea2cbc94641c225e6 | The three shade trees in the yard |
 
 ## Browser-only textures
 
