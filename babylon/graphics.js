@@ -194,6 +194,8 @@ export function buildGraphics(scene, shadows, lawn) {
   function shifted(dx,dz,build){const first=scene.meshes.length;build();for(const m of scene.meshes.slice(first)){m.position.x+=dx;m.position.z+=dz;}}
   const HX=YARD.halfX,HZ=YARD.halfZ;
   box('outer ground',100,.15,100,0,-.18,0,lawnBase,null,false);
+  // The house and porch, and each tree's trunk and crown, are grouped so loaded models can stand in for them.
+  const procHouse=new TransformNode('procedural house',scene),procTrees=new TransformNode('procedural trees',scene),houseStart=scene.meshes.length;
   shifted(12-HX,0,()=>{
   box('house siding',8,4.6,14,-17,2.3,-4,siding);
   box('foundation',8.1,.45,14.1,-17,.22,-4,stoneAccent);
@@ -224,6 +226,7 @@ export function buildGraphics(scene, shadows, lawn) {
   pane('front door',1.1,2.4,-12.84,1.5,-4.2,-Math.PI/2,doorPhoto);
   box('gas can',.3,.45,.25,-9,.3,-4,material('gas can red','#c3462b',.1));
   });
+  for(const mesh of scene.meshes.slice(houseStart))if(mesh.name!=='gas can'){if(tiles.has(mesh.material))worldUVs(mesh,tiles.get(mesh.material));mesh.setParent(procHouse);}
 
   for (let z=-HZ-.6;z<=HZ+.6;z+=.32) picket('fence board',.3,2.1,.03,HX+.72,0,z,Math.PI/2,cedar);
   for (const z of [-HZ-.7,HZ+.7]) {
@@ -248,6 +251,7 @@ export function buildGraphics(scene, shadows, lawn) {
   });
 
   for(const [x,z] of trees) {
+    const treeStart=scene.meshes.length;
     cylinder('tree trunk',.42,4.2,x,2.1,z,bark,null,.22);
     for(let i=0;i<7;i++) {
       const angle=i*6.28/7;
@@ -259,6 +263,7 @@ export function buildGraphics(scene, shadows, lawn) {
       for(let i=0;i<70;i++){const az=random()*6.28,v=random()*2-1,r=Math.cbrt(random()),hz=Math.sqrt(1-v*v)*r;
         crown.push({x:x+bx+Math.cos(az)*hz*br,y:by+v*r*br*.85-.55,z:z+bz+Math.sin(az)*hz*br,size:.95+random()*.5,tilt:(random()-.5)*.6,tint:.62+r*.32+v*.14});}
     cards('tree canopy',leafCards,crown,true);
+    for(const mesh of scene.meshes.slice(treeStart)){if(tiles.has(mesh.material))worldUVs(mesh,tiles.get(mesh.material));mesh.setParent(procTrees);}
     cylinder('tree mulch ring',1.35,.045,x,.03,z,mulch);
     const ring=MeshBuilder.CreateTorus('stone ring',{diameter:1.4,thickness:.12,tessellation:28},scene);ring.position.set(x,.075,z);finish(ring,edging);
   }
@@ -428,14 +433,14 @@ export function buildGraphics(scene, shadows, lawn) {
   // Bake each rigid group into one mesh per material so the detailed models stay cheap to draw.
   function bake(node){
     const groups=new Map();
-    for(const mesh of node.getChildMeshes(true)){if(mesh.material===logo)continue;const g=groups.get(mesh.material)||[];g.push(mesh);groups.set(mesh.material,g);}
+    for(const mesh of node.getChildMeshes(true)){if(mesh.material===logo||mesh.thinInstanceCount)continue;const g=groups.get(mesh.material)||[];g.push(mesh);groups.set(mesh.material,g);}
     for(const meshes of groups.values())if(meshes.length>1){
       for(const mesh of meshes){mesh.computeWorldMatrix(true);shadows.removeShadowCaster(mesh);}
       const merged=Mesh.MergeMeshes(meshes,true,true);if(merged){merged.setParent(node);merged.receiveShadows=true;shadows.addShadowCaster(merged);}
     }
   }
   mower.computeWorldMatrix(true);
-  for(const node of [mower,back,driver,driver.body,...driver.legs,walker,arms,...walker.legs,line,...wheels.map(w=>w.pivot)])bake(node);
+  for(const node of [mower,back,driver,driver.body,...driver.legs,walker,arms,...walker.legs,line,procHouse,procTrees,...wheels.map(w=>w.pivot)])bake(node);
 
   // Each thin instance is a tapered, curved ribbon, rather than a spike.
   const blade=new Mesh('curved grass',scene),data=new VertexData();
@@ -562,13 +567,13 @@ export function buildGraphics(scene, shadows, lawn) {
   const probe=new ReflectionProbe('yard reflections',256,scene);probe.position.set(0,1.2,-8);probe.refreshRate=RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
   const shiny=[[orange,.04,.2],[gloss,.06,.25],[plastic,.03,.15],[chrome,.5,.75],[steel,.15,.3],[windowPhoto,.12,.5]];
   // Shiny surfaces stay out of the snapshot, since a texture can't be drawn into itself.
-  for(const mesh of scene.meshes)if(!mesh.parent&&mesh!==blade&&mesh.name!=='clipping'&&!shiny.some(([m])=>m===mesh.material))probe.renderList.push(mesh);
+  for(const mesh of scene.meshes)if((!mesh.parent||mesh.parent===procHouse||mesh.parent===procTrees)&&mesh!==blade&&mesh.name!=='clipping'&&!shiny.some(([m])=>m===mesh.material))probe.renderList.push(mesh);
   for(const [m,face,edge] of shiny){
     m.reflectionTexture=probe.cubeTexture;const f=new FresnelParameters();f.bias=0;f.power=2.5;f.leftColor=new Color3(edge,edge,edge);f.rightColor=new Color3(face,face,face);m.reflectionFresnelParameters=f;
   }
   // Wheels roll by the distance each one actually travels, so the outside wheel turns faster in a curve.
   // The driver leans against the turn; the walker's legs stride and the trimmer sweeps while it spins.
-  let lean=0,stride=0,sweep=0,sweepSize=0;
+  let lean=0,stride=0,sweep=0,sweepSize=0;const hooks=[];
   function animate(dt,{onMower=true,forward=0,turn=0,cutting=false}){
     if(!dt)return;
     if(onMower){
@@ -583,5 +588,5 @@ export function buildGraphics(scene, shadows, lawn) {
       line.rotation.y+=dt*47;
     }
   }
-  return {mower,driver,walker,blade,refreshGrass,lawnBase,spray,setHighlight(on){if(on===highlight)return;highlight=on;for(let id=0;id<lawn.cells.length;id++)tint(id);blade.thinInstanceBufferUpdated('color');if(nearX<1e9)placeNear(nearX,nearZ);},update(dt,motion={}){wind.time+=dt;updateClippings(dt);animate(dt,motion);if(quality==='high'&&motion.x!==undefined&&Math.hypot(motion.x-nearX,motion.z-nearZ)>1.2)placeNear(motion.x,motion.z);},setQuality(q){quality=q;near.setEnabled(q==='high');refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
+  return {mower,driver,walker,seat,arms,line,procHouse,procTrees,probe,hooks,blade,refreshGrass,lawnBase,spray,setHighlight(on){if(on===highlight)return;highlight=on;for(let id=0;id<lawn.cells.length;id++)tint(id);blade.thinInstanceBufferUpdated('color');if(nearX<1e9)placeNear(nearX,nearZ);},update(dt,motion={}){wind.time+=dt;updateClippings(dt);animate(dt,motion);for(const hook of hooks)hook(dt,motion);if(quality==='high'&&motion.x!==undefined&&Math.hypot(motion.x-nearX,motion.z-nearZ)>1.2)placeNear(motion.x,motion.z);},setQuality(q){quality=q;near.setEnabled(q==='high');refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));}};
 }
