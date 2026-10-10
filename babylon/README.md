@@ -22,7 +22,8 @@ npm run build
 - Directional cut stripes and swept grass cutting without frame gaps.
 - Dismount/remount proximity and walking weed eater for narrow edges.
 - Blocked house/porch, patio and tree rings excluded from lawn coverage.
-- Front/side/back/edge checklist, 99% finish, timer and browser personal best.
+- Front/side/back/edge checklist; the yard is done when every item is ticked (98% each), so the weed eater is needed for the edges the mower can't reach. Timer, browser personal best, and a results card with stars against par time (three under 7:00, two under 10:00) plus riding time, trimming time, refuels and bumps.
+- Driving into the fence, house, patio or a tree stops the mower with a thud and a small camera shake (no shake when the system asks for reduced motion); ticking a checklist item plays a short blip. See `DESIGN.md` for the design review behind these.
 - Fuel consumption, empty-tank crawl, stationary refill by red porch can.
 - Pause, focus loss, restart; finished games stop moving and cutting.
 - Minimap, highlight of missed grass, low/medium/high quality, FPS overlay.
