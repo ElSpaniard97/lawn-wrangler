@@ -22,7 +22,9 @@ const refresh=node=>{node.computeWorldMatrix(true);for(const child of node.getDe
 
 export async function loadModels(scene,shadows,visuals){
   scene0=scene;
-  const [tractor,landscaper,trimmer,house,oak]=await Promise.all(['tractor','landscaper','trimmer','house','oak'].map(load));
+  // Match the zero-turn reference rather than substituting the tractor and mismatched rider.
+  const [trimmer,house,oak]=await Promise.all(['trimmer','house','oak'].map(load));
+  const tractor=null,landscaper=null;
   // Wrap a model so it can be turned, scaled to a size along one axis, and set on the ground.
   function fit(nodes,name,{size,axis='y',turn=Quaternion.Identity(),ground=true,center=true}){
     const holder=new TransformNode(name,scene),inner=new TransformNode(name+' model',scene);inner.parent=holder;inner.rotationQuaternion=turn;
