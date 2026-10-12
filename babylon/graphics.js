@@ -391,10 +391,10 @@ export function buildGraphics(scene, shadows, lawn) {
     const p=new TransformNode(name,scene);if(parent)p.parent=parent;
     // The upper body twists on its own node and each leg swings from a hip pivot.
     const body=new TransformNode(name+' upper body',scene);body.parent=p;p.body=body;p.legs=[];
-    const hip=seated?.98:.94,chest=hip+.5,neck=chest+.07,head=neck+.13;
+    const hip=seated?.98:.94,chest=hip+(seated?.65:.5),neck=chest+.07,head=neck+.13;
     // Torso: lathed from waist to shoulders, then flattened front to back.
     const torso=lathe('torso',[[0,0],[.16,0],[.17,.08],[.18,.25],[.205,.4],[.215,.46],[.19,.52],[.09,.56],[0,.57]],shirtGray,body,24);
-    torso.position.set(0,hip-.02,seated?-.06:0);torso.scaling.z=.62;if(seated)torso.rotation.x=-.08;
+    torso.position.set(0,hip-.02,seated?-.06:0);torso.scaling.z=.62;if(seated){torso.scaling.y=1.25;torso.scaling.x=1.15;torso.rotation.x=-.08;}
     lathe('belt',[[0,0],[.165,0],[.17,.05],[0,.05]],black,p,20).position.set(0,hip-.04,seated?-.06:0);
     const logoPlane=MeshBuilder.CreatePlane('shirt logo',{size:.24},scene);logoPlane.position.set(0,chest-.06,(seated?-.06:0)-.15);logoPlane.rotation.x=seated?-.08:0;finish(logoPlane,logo,body,false);
     limb('neck',[0,chest+.02,seated?-.07:0],[0,neck+.04,seated?-.06:0],.055,skin,body);
@@ -446,7 +446,7 @@ export function buildGraphics(scene, shadows, lawn) {
   const blade=new Mesh('curved grass',scene),data=new VertexData();
   data.positions=[];data.uvs=[];data.indices=[];
   for(let level=0;level<5;level++) {
-    const t=level/4,width=.025*(1-t)+.001,bend=.12*t*t;
+    const t=level/4,width=.018*(1-t)+.001,bend=.18*t*t;
     data.positions.push(-width+bend,t*.58,0,width+bend,t*.58,0);
     data.uvs.push(0,t,1,t);
     if(level<4){const i=level*2;data.indices.push(i,i+1,i+2,i+1,i+3,i+2);}
@@ -471,7 +471,7 @@ export function buildGraphics(scene, shadows, lawn) {
   let quality='high';
   const matrices=new Float32Array(count*16),colors=new Float32Array(count*4),samples=[];
   for(let id=0;id<lawn.cells.length;id++)for(let j=0;j<perCell;j++) {
-    const center=lawn.center(id),x=center.x+(random()-.5)*lawn.cell,z=center.z+(random()-.5)*lawn.cell,h=.5+random()*.45,angle=random()*6.28;
+    const center=lawn.center(id),x=center.x+(random()-.5)*lawn.cell,z=center.z+(random()-.5)*lawn.cell,h=.55+random()*.5,angle=random()*6.28;
     samples.push({x,z,h,angle,width:.65+random()*.7});const tint=.7+random()*.4;colors.set([tint,.85+random()*.15,.7+random()*.3,1],(id*perCell+j)*4);
   }
   // Missed grass glows yellow-green while Find grass is on; cut cells keep their natural tint.
@@ -486,7 +486,7 @@ export function buildGraphics(scene, shadows, lawn) {
   let nearX=1e9,nearZ=1e9;
   function nearCell(id,slot){
     const center=lawn.center(id),state=lawn.cells[id];
-    for(let j=0;j<nearPer;j++){const k=id*nearPer+j,r=(n)=>hash(k*4+n),h=state===BLOCKED?0:state===0?.42+r(1)*.45:.05,i=slot+j;
+    for(let j=0;j<nearPer;j++){const k=id*nearPer+j,r=(n)=>hash(k*4+n),h=state===BLOCKED?0:state===0?.48+r(1)*.5:.08,i=slot+j;
       Matrix.Compose(new Vector3(.55+r(2)*.5,h,1),Quaternion.RotationAxis(Vector3.Up(),r(3)*6.28),new Vector3(center.x+(r(0)-.5)*lawn.cell,.018,center.z+(hash(k*4+7)-.5)*lawn.cell)).copyToArray(nearMatrices,i*16);
       const tint=.7+r(2)*.4;nearColors.set(highlight&&state===0?glow:[tint,.85+r(3)*.15,.7+r(1)*.3,1],i*4);}
   }
@@ -502,7 +502,7 @@ export function buildGraphics(scene, shadows, lawn) {
     let nearChanged=false;for(const id of ids)if(nearSlots.has(id)){nearCell(id,nearSlots.get(id));nearChanged=true;}
     if(nearChanged){near.thinInstanceBufferUpdated('matrix');near.thinInstanceBufferUpdated('color');}
     for(const id of ids)for(let j=0;j<perCell;j++) {
-      const index=id*perCell+j,s=samples[index],state=lawn.cells[id],h=state===BLOCKED||(quality==='medium'&&j%2)?0:state===0?s.h:.055;
+      const index=id*perCell+j,s=samples[index],state=lawn.cells[id],h=state===BLOCKED||(quality==='medium'&&j%2)?0:state===0?s.h:.085;
       Matrix.Compose(new Vector3(s.width,h,1),Quaternion.RotationAxis(Vector3.Up(),s.angle),new Vector3(s.x,.018,s.z)).copyToArray(matrices,index*16);
     }
     blade.thinInstanceBufferUpdated('matrix');
@@ -565,6 +565,7 @@ export function buildGraphics(scene, shadows, lawn) {
   // Reflections: one snapshot of the yard and sky from mower height, shown on paint, chrome and glass,
   // strongest at grazing angles like real gloss.
   const probe=new ReflectionProbe('yard reflections',256,scene);probe.position.set(0,1.2,-8);probe.refreshRate=RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
+  scene.environmentTexture=probe.cubeTexture;scene.environmentIntensity=.65;
   const shiny=[[orange,.04,.2],[gloss,.06,.25],[plastic,.03,.15],[chrome,.5,.75],[steel,.15,.3],[windowPhoto,.12,.5]];
   // Shiny surfaces stay out of the snapshot, since a texture can't be drawn into itself.
   for(const mesh of scene.meshes)if((!mesh.parent||mesh.parent===procHouse||mesh.parent===procTrees)&&mesh!==blade&&mesh.name!=='clipping'&&!shiny.some(([m])=>m===mesh.material))probe.renderList.push(mesh);
