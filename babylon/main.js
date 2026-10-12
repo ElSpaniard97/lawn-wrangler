@@ -29,12 +29,12 @@ let coarse=false;try{coarse=matchMedia('(pointer: coarse)').matches;}catch{}
 const game=new Game(storage,coarse?'low':'high');
 const simulation=new SimulationClock(game);
 const $=id=>document.getElementById(id),engine=new Engine($('game'),true,{preserveDrawingBuffer:true}),scene=new Scene(engine);
-scene.clearColor=new Color4(.64,.81,.91,1);scene.fogMode=Scene.FOGMODE_EXP2;scene.fogDensity=.003;scene.fogColor=new Color3(.64,.81,.91);
-const ambient=new HemisphericLight('sky',new Vector3(0,1,0),scene);ambient.intensity=.72;ambient.groundColor=new Color3(.25,.31,.15);
-const sun=new DirectionalLight('sun',new Vector3(-.65,-1,.5),scene);sun.position=new Vector3(20,35,-20);sun.intensity=1.25;sun.diffuse=new Color3(1,.96,.88);
-// A little extra contrast and exposure for the bright summer look of the reference art.
-scene.imageProcessingConfiguration.contrast=1.08;scene.imageProcessingConfiguration.exposure=1.03;
-const shadows=new ShadowGenerator(2048,sun);shadows.usePercentageCloserFiltering=true;shadows.filteringQuality=ShadowGenerator.QUALITY_MEDIUM;shadows.bias=.0005;shadows.normalBias=.035;shadows.darkness=.22;
+scene.clearColor=new Color4(.6,.8,.97,1);scene.fogMode=Scene.FOGMODE_EXP2;scene.fogDensity=.0025;scene.fogColor=new Color3(.68,.84,.97);
+const ambient=new HemisphericLight('sky',new Vector3(0,1,0),scene);ambient.intensity=.82;ambient.diffuse=new Color3(.95,.98,1.04);ambient.groundColor=new Color3(.34,.42,.2);
+const sun=new DirectionalLight('sun',new Vector3(-.65,-1,.5),scene);sun.position=new Vector3(20,35,-20);sun.intensity=1.5;sun.diffuse=new Color3(1,.95,.84);
+// Bright, saturated summer daylight: extra exposure and a touch of contrast so colours pop without washing out.
+scene.imageProcessingConfiguration.contrast=1.14;scene.imageProcessingConfiguration.exposure=1.12;
+const shadows=new ShadowGenerator(2048,sun);shadows.usePercentageCloserFiltering=true;shadows.filteringQuality=ShadowGenerator.QUALITY_MEDIUM;shadows.bias=.0005;shadows.normalBias=.035;shadows.darkness=.25;
 // Keep directional shadows focused on the playable yard.
 sun.autoUpdateExtends=false;sun.orthoLeft=-26;sun.orthoRight=26;sun.orthoTop=26;sun.orthoBottom=-26;sun.shadowMinZ=1;sun.shadowMaxZ=100;
 const lawn=game.lawn;
@@ -53,26 +53,30 @@ for(const button of document.querySelectorAll('[data-drive]')){button.addEventLi
 // contact shadows in corners (SSAO) and a gentle depth blur on the far yard.
 let look,occlusion;
 function applyEffects(q){
-  look?.dispose();occlusion?.dispose();look=occlusion=null;const ip=scene.imageProcessingConfiguration;ip.vignetteEnabled=q!=='low';ip.colorCurvesEnabled=q!=='low';
+  look?.dispose();occlusion?.dispose();look=occlusion=null;const ip=scene.imageProcessingConfiguration;ip.vignetteEnabled=q!=='low';
   if(q==='low')return;
   // Not HDR: glossy model highlights overflow half-float buffers to Infinity, which bloom smears into black squares.
-  look=new DefaultRenderingPipeline('look',false,scene,[camera]);look.fxaaEnabled=true;look.bloomEnabled=true;look.bloomThreshold=.95;look.bloomWeight=.08;look.bloomKernel=48;look.bloomScale=.5;
-  // Keep the lawn and house sharp in the daylight view.
+  look=new DefaultRenderingPipeline('look',false,scene,[camera]);look.fxaaEnabled=true;look.bloomEnabled=true;look.bloomThreshold=.88;look.bloomWeight=.14;look.bloomKernel=48;look.bloomScale=.5;
+  // A light sharpen keeps grass blades, fence boards and siding crisp after FXAA.
+  look.sharpenEnabled=true;look.sharpen.edgeAmount=q==='high'?.35:.25;look.sharpen.colorAmount=1;
   if(q==='high'&&engine.webGLVersion>=2){occlusion=new SSAO2RenderingPipeline('contact shadows',scene,{ssaoRatio:.5,blurRatio:.5},[camera]);occlusion.radius=.8;occlusion.totalStrength=.75;occlusion.samples=12;occlusion.maxZ=60;occlusion.expensiveBlur=false;}
 }
-{const ip=scene.imageProcessingConfiguration,curves=new ColorCurves();curves.globalSaturation=12;curves.highlightsHue=45;curves.highlightsDensity=18;curves.highlightsSaturation=25;ip.colorCurves=curves;ip.vignetteWeight=1.4;ip.vignetteStretch=.4;ip.vignetteColor=new Color4(.08,.12,.06,0);}
-function applyQuality(){const q=game.settings.quality;applyEffects(q);engine.setHardwareScalingLevel(q==='low'?1.8:q==='medium'?1.3:1);scene.shadowsEnabled=q!=='low';blade.setEnabled(q!=='low');visuals.setQuality(q);$('quality').textContent='Quality: '+q;}
+{const ip=scene.imageProcessingConfiguration,curves=new ColorCurves();curves.globalSaturation=32;curves.highlightsHue=45;curves.highlightsDensity=14;curves.highlightsSaturation=30;curves.shadowsHue=200;curves.shadowsDensity=8;curves.shadowsSaturation=20;ip.colorCurves=curves;ip.colorCurvesEnabled=true;ip.vignetteWeight=1.1;ip.vignetteStretch=.4;ip.vignetteColor=new Color4(.08,.12,.06,0);}
+// High renders sharper on high-density screens (capped so it stays smooth), uses a finer, softer shadow map and
+// sharper textures at grazing angles; Low keeps phones fast.
+function applyQuality(){const q=game.settings.quality;applyEffects(q);engine.setHardwareScalingLevel(q==='low'?1.8:q==='medium'?1.2:1/Math.min(Math.max(window.devicePixelRatio||1,1),1.25));shadows.getShadowMap()?.resize(q==='high'?4096:2048);shadows.filteringQuality=q==='high'?ShadowGenerator.QUALITY_HIGH:ShadowGenerator.QUALITY_MEDIUM;anisotropy=q==='low'?4:q==='medium'?8:16;for(const t of scene.textures)sharpen(t);scene.shadowsEnabled=q!=='low';blade.setEnabled(q!=='low');visuals.setQuality(q);$('quality').textContent='Quality: '+q;}
+let anisotropy=4;function sharpen(t){if(t.getClassName?.()!=='RenderTargetTexture'&&t.anisotropicFilteringLevel!==undefined)t.anisotropicFilteringLevel=anisotropy;}scene.onNewTextureAddedObservable.add(sharpen);
 applyQuality();
 function reset(){game.reset();simulation.reset();$('results').hidden=true;ticked=[];keys.clear();touch={throttle:0,steer:0};refreshGrass(Array.from({length:lawn.cells.length},(_,i)=>i));paintMap();}
 
 // DynamicTexture stays GPU-resident; only update the small cut map after cutting.
 const cutTexture=new DynamicTexture('cut map',{width:512,height:512},scene,false);cutTexture.hasAlpha=false;const cutMaterial=new StandardMaterial('directional lawn',scene);// The lawn is the grass photo, darkened per cell by the cut map to draw stripes and tall grass.
-const lawnPhoto=new Texture(photos.lawn,scene);lawnPhoto.uScale=lawn.width/1.6;lawnPhoto.vScale=lawn.depth/1.6;cutMaterial.diffuseTexture=lawnPhoto;cutMaterial.diffuseColor=new Color3(1.05,1.05,1.05);cutMaterial.lightmapTexture=cutTexture;cutMaterial.useLightmapAsShadowmap=true;cutMaterial.specularColor=Color3.Black();const cutGround=MeshBuilder.CreateGround('directional ground',{width:lawn.width,height:lawn.depth},scene);cutGround.position.y=.015;cutGround.material=cutMaterial;cutGround.receiveShadows=true;
+const lawnPhoto=new Texture(photos.lawn,scene);lawnPhoto.uScale=lawn.width/1.6;lawnPhoto.vScale=lawn.depth/1.6;cutMaterial.diffuseTexture=lawnPhoto;cutMaterial.diffuseColor=new Color3(1.12,1.15,1.05);cutMaterial.lightmapTexture=cutTexture;cutMaterial.useLightmapAsShadowmap=true;cutMaterial.specularColor=Color3.Black();const cutGround=MeshBuilder.CreateGround('directional ground',{width:lawn.width,height:lawn.depth},scene);cutGround.position.y=.015;cutGround.material=cutMaterial;cutGround.receiveShadows=true;
 // Canvas rows run top-down while the ground's texture runs from -z, so rows are flipped to line up with the cells.
 function paintMap(ids=Array.from({length:lawn.cells.length},(_,i)=>i)){
   const ctx=cutTexture.getContext(),size=cutTexture.getSize(),w=size.width/lawn.cols,h=size.height/lawn.rows;
   for(const id of ids){const x=id%lawn.cols*w,y=(lawn.rows-1-Math.floor(id/lawn.cols))*h,state=lawn.cells[id];
-    ctx.fillStyle=state===0&&lastGlow?'#ffff9a':['#9aa888','#ffffff','#b7c4a2','#a08c6a'][state];ctx.fillRect(x,y,w+.01,h+.01);
+    ctx.fillStyle=state===0&&lastGlow?'#ffff9a':['#a7b78f','#ffffff','#c3d0ab','#a08c6a'][state];ctx.fillRect(x,y,w+.01,h+.01);
   }
   cutTexture.update();
 }paintMap();
