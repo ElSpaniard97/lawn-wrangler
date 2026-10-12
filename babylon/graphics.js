@@ -97,7 +97,7 @@ export function buildGraphics(scene, shadows, lawn) {
   const stone = photo('pavers','pavers',1.5);
   const edging = photo('edging stone','stone',.8);
   const mulch = photo('mulch','mulch',.8);
-  const lawnBase = photo('lawn texture','lawn',1.6,'#b4bea4');
+  const lawnBase = photo('lawn texture','lawn',1.6,'#a3b192');
   const sidingGray = photo('gray clapboard','sidingGray',2);
   const stoneAccent = photo('stone veneer','stoneAccent',1.2);
   const gravel = photo('river rock','gravel',.9);
@@ -148,7 +148,7 @@ export function buildGraphics(scene, shadows, lawn) {
     const m=material(name,'#ffffff');m.diffuseTexture=t;m.backFaceCulling=false;m.specularColor=new Color3(.05,.06,.03);return m;
   }
   function leaf(c,x,y,len,angle,color){c.save();c.translate(x,y);c.rotate(angle);c.fillStyle=color;c.beginPath();c.moveTo(0,0);c.quadraticCurveTo(len*.5,-len*.32,len,0);c.quadraticCurveTo(len*.5,len*.32,0,0);c.fill();c.restore();}
-  const leafColors=(light)=>{const h=78+random()*34,l=light*(22+random()*24);return `hsl(${h},${38+random()*25}%,${l}%)`;};
+  const leafColors=(light)=>{const h=80+random()*32,l=light*(25+random()*25);return `hsl(${h},${50+random()*28}%,${l}%)`;};
   const leafCards=painted('leaf cluster',256,(c,n)=>{
     for(let i=0;i<900;i++){const a=random()*6.28,r=Math.sqrt(random())*n*.44,x=n/2+Math.cos(a)*r,y=n/2+Math.sin(a)*r*.9,depth=1-r/(n*.44);
       leaf(c,x,y,10+random()*12,random()*6.28,leafColors(.8+(1-depth)*.5+(y<n/2?.25:0)));}
@@ -278,12 +278,15 @@ export function buildGraphics(scene, shadows, lawn) {
   }
   cards('border shrubs',leafCards,shrubs,true);cards('border flowers',flowerCards,flowers);
   // A ring of distant shade trees closes off the horizon, like the tree line in the reference.
-  const distantLeaves=material('distant leaves','#93ad6a');distantLeaves.diffuseTexture=new Texture(photos.leaves,scene);distantLeaves.diffuseTexture.uScale=3;distantLeaves.diffuseTexture.vScale=2;
+  // Each crown is a dark leafy core wrapped in painted leaf cards, so the silhouettes are ragged and leafy, not round.
+  const distantLeaves=material('distant leaves','#5f7f3a');distantLeaves.diffuseTexture=new Texture(photos.leaves,scene);distantLeaves.diffuseTexture.uScale=3;distantLeaves.diffuseTexture.vScale=2;const distantCrowns=[];
   for(let i=0;i<44;i++){
     const a=i/44*6.28+random()*.08,r=46+random()*12,x=Math.cos(a)*r,z=Math.sin(a)*r,h=6+random()*5;
     cylinder('distant trunk',.6,h*.5,x,h*.25,z,bark);
-    for(let j=0;j<3;j++)sphere('distant crown',h*.55+random()*2,h*.45+random()*1.5,h*.55+random()*2,x+(random()-.5)*2.5,h*.62+random()*1.5,z+(random()-.5)*2.5,distantLeaves,null,false);
+    for(let j=0;j<3;j++){const w=h*.4+random()*1.4,t=h*.34+random()*1,cx=x+(random()-.5)*2.5,cy=h*.62+random()*1.5,cz=z+(random()-.5)*2.5;sphere('distant crown',w,t,w,cx,cy,cz,distantLeaves,null,false);
+      for(let k=0;k<12;k++){const az=random()*6.28,v=random()*2-1,hz=Math.sqrt(1-v*v);distantCrowns.push({x:cx+Math.cos(az)*hz*w*.6,y:cy+v*t*.55-1.1,z:cz+Math.sin(az)*hz*w*.6,size:2.2+random()*1.2,tilt:(random()-.5)*.5,tint:.66+v*.2+random()*.18});}}
   }
+  cards('distant canopy',leafCards,distantCrowns);
   // Distant roofs peek above the fence without cluttering the playable lawn.
   for(const x of [-9,9]) {
     box('neighbor house',7,4,6,x,2,HZ+7,x<0?sidingGray:siding);
@@ -452,9 +455,9 @@ export function buildGraphics(scene, shadows, lawn) {
     if(level<4){const i=level*2;data.indices.push(i,i+1,i+2,i+1,i+3,i+2);}
   }
   data.normals=[];VertexData.ComputeNormals(data.positions,data.indices,data.normals);data.applyToMesh(blade);
-  const grassMat=material('living grass','#ffffff');grassMat.backFaceCulling=false;grassMat.specularColor=new Color3(.03,.035,.01);grassMat.emissiveColor=new Color3(.045,.055,.015);
+  const grassMat=material('living grass','#ffffff');grassMat.backFaceCulling=false;grassMat.specularColor=new Color3(.03,.035,.01);grassMat.emissiveColor=new Color3(.06,.085,.02);
   const gradient=new DynamicTexture('blade gradient',{width:32,height:256},scene,false),g=gradient.getContext(),gr=g.createLinearGradient(0,0,0,256);
-  gr.addColorStop(0,'#3f5b20');gr.addColorStop(.4,'#799b36');gr.addColorStop(1,'#b3cb60');g.fillStyle=gr;g.fillRect(0,0,32,256);gradient.update();grassMat.diffuseTexture=gradient;blade.material=grassMat;blade.receiveShadows=true;
+  gr.addColorStop(0,'#3c6418');gr.addColorStop(.4,'#7aae2e');gr.addColorStop(.85,'#b2d75a');gr.addColorStop(1,'#d2e98a');g.fillStyle=gr;g.fillRect(0,0,32,256);gradient.update();grassMat.diffuseTexture=gradient;blade.material=grassMat;blade.receiveShadows=true;
   class GrassWind extends MaterialPluginBase {
     constructor(m){super(m,'GrassWind',200,{GRASS_WIND:true});this.time=0;this._enable(true);}
     prepareDefines(defines){defines.GRASS_WIND=true;}
@@ -554,18 +557,18 @@ export function buildGraphics(scene, shadows, lawn) {
   for(let py=0;py<256;py++)for(let px=0;px<1024;px++){
     const u=px/1024,e=py/255;let n=0,amp=.5;for(const period of [4,8,16,32,64]){n+=cloudNoise(u,e*2.5,period)*amp;amp/=2;}
     const cover=Math.max(0,Math.min(1,(n-.5)*5))*Math.min(1,e*7)*(1-e*.4),haze=Math.pow(1-e,2.5);
-    const sky=[96+haze*104,152+haze*68,222+haze*16],shade=Math.max(0,n-.6)*1.6,cloud=[250-shade*60,250-shade*55,252-shade*45],i=(py*1024+px)*4;
+    const sky=[62+haze*130,138+haze*80,236+haze*12],shade=Math.max(0,n-.6)*1.6,cloud=[255-shade*55,255-shade*48,255-shade*36],i=(py*1024+px)*4;
     for(let k=0;k<3;k++)pixels.data[i+k]=sky[k]*(1-cover)+cloud[k]*cover;pixels.data[i+3]=255;
   }
   sc.putImageData(pixels,0,0);skyTexture.update();skyTexture.wrapV=Texture.CLAMP_ADDRESSMODE;
-  const sky=MeshBuilder.CreateSphere('sky dome',{diameter:160,segments:32,sideOrientation:Mesh.BACKSIDE},scene),skyMaterial=material('sky material','#000000');
+  const sky=MeshBuilder.CreateSphere('sky dome',{diameter:320,segments:32,sideOrientation:Mesh.BACKSIDE},scene),skyMaterial=material('sky material','#000000');
   const skyPositions=sky.getVerticesData('position'),skyUVs=[];
   for(let i=0;i<skyPositions.length;i+=3){const [x,y,z]=[skyPositions[i],skyPositions[i+1],skyPositions[i+2]],elevation=Math.atan2(y,Math.hypot(x,z));skyUVs.push(Math.atan2(z,x)/Math.PI/2+.5,Math.max(0,1-elevation/(Math.PI/2)));}
-  sky.setVerticesData('uv',skyUVs);skyMaterial.disableLighting=true;skyMaterial.emissiveColor=Color3.Black();skyMaterial.emissiveTexture=skyTexture;sky.material=skyMaterial;sky.isPickable=false;sky.infiniteDistance=true;
+  sky.setVerticesData('uv',skyUVs);skyMaterial.disableLighting=true;skyMaterial.emissiveColor=Color3.Black();skyMaterial.emissiveTexture=skyTexture;sky.material=skyMaterial;sky.isPickable=false;sky.infiniteDistance=true;sky.applyFog=false;
   // Reflections: one snapshot of the yard and sky from mower height, shown on paint, chrome and glass,
   // strongest at grazing angles like real gloss.
   const probe=new ReflectionProbe('yard reflections',256,scene);probe.position.set(0,1.2,-8);probe.refreshRate=RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
-  scene.environmentTexture=probe.cubeTexture;scene.environmentIntensity=.65;
+  scene.environmentTexture=probe.cubeTexture;scene.environmentIntensity=.85;
   const shiny=[[orange,.04,.2],[gloss,.06,.25],[plastic,.03,.15],[chrome,.5,.75],[steel,.15,.3],[windowPhoto,.12,.5]];
   // Shiny surfaces stay out of the snapshot, since a texture can't be drawn into itself.
   for(const mesh of scene.meshes)if((!mesh.parent||mesh.parent===procHouse||mesh.parent===procTrees)&&mesh!==blade&&mesh.name!=='clipping'&&!shiny.some(([m])=>m===mesh.material))probe.renderList.push(mesh);
